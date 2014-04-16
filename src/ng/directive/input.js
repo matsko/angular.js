@@ -1567,13 +1567,19 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
   this.$modelValue = Number.NaN;
   this.$parsers = [];
   this.$formatters = [];
+  this.$validators = {};
   this.$viewChangeListeners = [];
   this.$pristine = true;
   this.$dirty = false;
   this.$valid = true;
   this.$invalid = false;
   this.$name = $attr.name;
-
+  this.$validate = function(value) {
+    var ctrl = this;
+    angular.forEach(ctrl.$validators, function(validator, name) {
+      ctrl.$setValidity(name, validator(value));
+    });
+  };
 
   var ngModelGet = $parse($attr.ngModel),
       ngModelSet = ngModelGet.assign,
@@ -1775,6 +1781,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
 
     if (ctrl.$modelValue !== value) {
       ctrl.$modelValue = value;
+
       ngModelSet($scope, value);
       forEach(ctrl.$viewChangeListeners, function(listener) {
         try {
@@ -1829,6 +1836,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
   // model -> value
   $scope.$watch(function ngModelWatch() {
     var value = ngModelGet($scope);
+    ctrl.$validate(value);
 
     // if scope model value and ngModel value are out of sync
     if (ctrl.$modelValue !== value) {

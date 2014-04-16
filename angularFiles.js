@@ -80,6 +80,9 @@ angularFiles = {
     'ngCookies': [
       'src/ngCookies/cookies.js'
     ],
+    'ngForm': [
+      'src/ngForm/form.js'
+    ],
     'ngResource': [
       'src/ngResource/resource.js'
     ],
@@ -128,6 +131,7 @@ angularFiles = {
     'test/auto/*.js',
     'test/ng/**/*.js',
     'test/ngAnimate/*.js',
+    'test/ngForm/*.js',
     'test/ngCookies/*.js',
     'test/ngResource/*.js',
     'test/ngRoute/**/*.js',
@@ -189,6 +193,7 @@ angularFiles = {
 
 angularFiles['angularSrcModules'] = [].concat(
   angularFiles['angularModules']['ngAnimate'],
+  angularFiles['angularModules']['ngForm'],
   angularFiles['angularModules']['ngCookies'],
   angularFiles['angularModules']['ngResource'],
   angularFiles['angularModules']['ngRoute'],
