@@ -180,7 +180,6 @@ describe('ngMessages', function() {
                                        '<div ng-message-on="c">C</div>');
 
         element = $compile('<div ng-message="data" ng-message-include="abc.html"></div>')($rootScope);
-
         $rootScope.$apply(function() {
           $rootScope.data = {
             'a': 1,
@@ -242,7 +241,7 @@ describe('ngMessages', function() {
         expect(trim(element.text())).toEqual("You did not enter a value");
       }));
 
-      it('should prevent multiple ngMessage directives from downloading the remote template at the same time',
+      xit('should prevent multiple ngMessage directives from downloading the remote template at the same time',
         inject(function($rootScope, $compile, $templateCache, $httpBackend) {
 
         $httpBackend.expect('GET', 'tpl').respond(201,
@@ -354,6 +353,33 @@ describe('ngMessages', function() {
 
         expect(element.children().length).toBe(1);
         expect(trim(element.text())).toEqual("B");
+      }));
+
+
+      it('should provide a template url to child elements',
+        inject(function($templateCache, $compile, $rootScope) {
+
+        $templateCache.put('abc.html', '<div ng-message-on="a">A</div>' +
+                                       '<div ng-message-on="b">B</div>' +
+                                       '<div ng-message-on="c">C</div>');
+
+
+        element = angular.element('<div ng-message-include="abc.html">' +
+                                      '  <div ng-message="{a:1}"></div>' +
+                                      '  <div ng-message="{b:2}"></div>' +
+                                      '</div>');
+
+        var msg1 = element.children().eq(0);
+        var msg2 = element.children().eq(1);
+
+        $compile(element)($rootScope);
+        $rootScope.$apply();
+
+        expect(msg1.children().length).toBe(1);
+        expect(trim(msg1.text())).toEqual("A");
+
+        expect(msg2.children().length).toBe(1);
+        expect(trim(msg2.text())).toEqual("B");
       }));
     });
 

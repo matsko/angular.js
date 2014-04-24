@@ -188,8 +188,6 @@ angular.module('ngMessages', [])
     *
     * @param {string} ngMessage an angular expression evaluating to a key/value object
     *                 (this is typically the $error object on an ngModel instance).
-    * @param {string=} ngMessageInclude a string value corresponding to the remote template that will be
-    *                  included into the message container
     * @param {string=} ngMessageMultiple when set, all messages will be displayed with true
     *
     * @example
@@ -220,30 +218,10 @@ angular.module('ngMessages', [])
     *   </file>
     * </example>
     */
-  .directive('ngMessage', ['$templateCache', '$http', '$compile', '$animate',
-                   function($templateCache,   $http,   $compile,   $animate) {
+  .directive('ngMessage', ['$compile', '$animate',
+                   function($compile,   $animate) {
     var ACTIVE_CLASS = 'ng-active';
     var INACTIVE_CLASS = 'ng-inactive';
-
-    //In the event that multiple ngMessage directives are downloading the same
-    //template at the same time, queue up the response promise and return that
-    //for the remaining directives.
-    var downloadQueue = {};
-    function downloadRemoteTemplate(url) {
-      if(!downloadQueue[url]) {
-        var removeFromQueue = function() {
-          delete downloadQueue[url];
-        };
-
-        downloadQueue[url] = $http.get(url)
-          .error(removeFromQueue)
-          .success(function(data) {
-            removeFromQueue();
-            $templateCache.put(url, data);
-          });
-      }
-      return downloadQueue[url];
-    }
 
     return {
       restrict: 'A',
@@ -289,8 +267,9 @@ angular.module('ngMessages', [])
           }
         };
       },
-      require: 'ngMessage',
-      link: function($scope, element, attrs, ctrl) {
+      require: ['ngMessage', '?^ngMessageInclude'],
+      link: function($scope, element, attrs, ctrls) {
+        var ctrl = ctrls[0];
         ctrl.$renderNgMessageClasses = function(bool) {
           bool ? $animate.setClass(element, ACTIVE_CLASS, INACTIVE_CLASS)
                : $animate.setClass(element, INACTIVE_CLASS, ACTIVE_CLASS);
@@ -301,41 +280,49 @@ angular.module('ngMessages', [])
           cachedValues = values;
           ctrl.$renderMessages(values, multiple);
         });
-
-        var tpl = attrs.ngMessageInclude;
-        if(tpl && tpl.length > 0) {
-          var tplHtml = $templateCache.get(tpl);
-          if(tplHtml) {
-            //evalAsync is used so the inner components are always
-            //rendered first before the remote template when cached
+        if ( ctrls[1] && ctrls[1].tplPromise ) {
+          ctrls[1].tplPromise.success(function processTemplate(html) {
             $scope.$evalAsync(function() {
-              processTemplate(tplHtml);
+              var after, container = angular.element('<div/>').html(html);
+              angular.forEach(container.children(), function(elm) {
+               elm = angular.element(elm);
+               after ? after.after(elm)
+                     : element.prepend(elm); //start of the container
+               after = elm;
+               $compile(elm)($scope);
+              });
+              ctrl.$renderMessages(cachedValues, multiple);
             });
-          } else {
-            downloadRemoteTemplate(tpl).success(processTemplate);
-          }
-        }
-
-        function processTemplate(html) {
-          var after, container = angular.element('<div/>').html(html);
-          angular.forEach(container.children(), function(elm) {
-            elm = angular.element(elm);
-            after ? after.after(elm)
-                  : element.prepend(elm); //start of the container
-            after = elm;
-            $compile(elm)($scope);
           });
-          ctrl.$renderMessages(cachedValues, multiple);
         }
       }
     };
   }])
 
+
+  /**
+   * @ngdoc directive
+   * @name ngMessageInclude
+   * @description
+   * Use this directive to tell all {@link ngMessage} directives on descendent elements to this
+   * where they can get their remote template
+   * @param {string=} ngMessageInclude a string value corresponding to the remote template that will
+   *                                   be included into the message container
+   *
+   */
+  .directive('ngMessageInclude', function() {
+    return {
+      controller: ['$scope', '$attrs', '$http', '$templateCache', function($scope, $attrs, $http, $templateCache) {
+        this.tplUrl = $attrs.ngMessageInclude;
+        this.tplPromise = $http.get(this.tplUrl, { cache: $templateCache } );
+      }]
+    };
+  })
+
+
    /**
     * @ngdoc directive
-    * @module ngMessages
     * @name ngMessageOn
-    * @restrict A
     * @scope
     *
     * @description
