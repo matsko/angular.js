@@ -5,6 +5,7 @@ var nullFormCtrl = {
   $addControl: noop,
   $removeControl: noop,
   $setValidity: noop,
+  $$setPending: noop,
   $setDirty: noop,
   $setPristine: noop,
   $setSubmitted: noop
@@ -53,8 +54,9 @@ function FormController(element, attrs, $scope, $animate) {
   var form = this,
       parentForm = element.parent().controller('form') || nullFormCtrl,
       invalidCount = 0, // used to easily determine if we are valid
-      errors = form.$error = {},
-      controls = [];
+      pendingCount = 0,
+      controls = [],
+      errors = form.$error = {};
 
   // init state
   form.$name = attrs.name || attrs.ngForm;
@@ -151,6 +153,21 @@ function FormController(element, attrs, $scope, $animate) {
     arrayRemove(controls, control);
   };
 
+  form.$$setPending = function(validationToken, control) {
+    var pending = form.$pending && form.$pending[validationToken];
+
+    if (!pending || !includes(pending, control)) {
+      pendingCount++;
+      form.$valid = form.$invalid = undefined;
+      form.$pending = form.$pending || {};
+      if (!pending) {
+        pending = form.$pending[validationToken] = [];
+      }
+      pending.push(control);
+      parentForm.$$setPending(validationToken, form);
+    }
+  };
+
   /**
    * @ngdoc method
    * @name form.FormController#$setValidity
@@ -162,13 +179,34 @@ function FormController(element, attrs, $scope, $animate) {
    */
   form.$setValidity = function(validationToken, isValid, control) {
     var queue = errors[validationToken];
+    var pendingChange, pending = form.$pending && form.$pending[validationToken];
+
+    if (pending) {
+      pendingChange = indexOf(pending, control) >= 0;
+      if (pendingChange) {
+        arrayRemove(pending, control);
+        pendingCount--;
+
+        if (pending.length === 0) {
+          delete form.$pending[validationToken];
+        }
+      }
+    }
+
+    if (form.$pending && pendingCount === 0) {
+      form.$pending = undefined;
+    }
 
     if (isValid) {
-      if (queue) {
-        arrayRemove(queue, control);
-        if (!queue.length) {
-          invalidCount--;
-          if (!invalidCount) {
+      if (queue || pendingChange) {
+        if (queue) {
+          arrayRemove(queue, control);
+        }
+        if (!queue || !queue.length) {
+          if (errors[validationToken]) {
+            invalidCount--;
+          }
+          if (!invalidCount && !form.$pending) {
             toggleValidCss(isValid);
             form.$valid = true;
             form.$invalid = false;
@@ -178,8 +216,12 @@ function FormController(element, attrs, $scope, $animate) {
           parentForm.$setValidity(validationToken, true, form);
         }
       }
-
     } else {
+      if (!form.$pending) {
+        form.$valid = false;
+        form.$invalid = true;
+      }
+
       if (!invalidCount) {
         toggleValidCss(isValid);
       }
@@ -192,9 +234,6 @@ function FormController(element, attrs, $scope, $animate) {
         parentForm.$setValidity(validationToken, false, form);
       }
       queue.push(control);
-
-      form.$valid = false;
-      form.$invalid = true;
     }
   };
 

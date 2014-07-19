@@ -8,6 +8,7 @@ describe('NgModelController', function() {
     var attrs = {name: 'testAlias', ngModel: 'value'};
 
     parentFormCtrl = {
+      $$setPending: jasmine.createSpy('$$setPending'),
       $setValidity: jasmine.createSpy('$setValidity'),
       $setDirty: jasmine.createSpy('$setDirty')
     };
@@ -469,6 +470,36 @@ describe('NgModelController', function() {
       expect(ctrl.$error.tooLong).toBe(true);
       expect(ctrl.$error.notNumeric).not.toBe(true);
     });
+
+    it('should render a validator asynchronously when a promise is returned', inject(function($q) {
+      var defer;
+      ctrl.$validators.async = function(value) {
+        defer = $q.defer();
+        return defer.promise;
+      };
+
+      scope.$apply('value = ""');
+
+      expect(ctrl.$valid).toBeUndefined();
+      expect(ctrl.$invalid).toBeUndefined();
+      expect(ctrl.$pending.async).toBe(true);
+
+      defer.resolve();
+      scope.$digest();
+
+      expect(ctrl.$valid).toBe(true);
+      expect(ctrl.$invalid).toBe(false);
+      expect(ctrl.$pending).toBeUndefined();
+
+      scope.$apply('value = "123"');
+
+      defer.reject();
+      scope.$digest();
+
+      expect(ctrl.$valid).toBe(false);
+      expect(ctrl.$invalid).toBe(true);
+      expect(ctrl.$pending).toBeUndefined();
+    }));
   });
 });
 

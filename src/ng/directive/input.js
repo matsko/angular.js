@@ -1357,7 +1357,8 @@ var VALID_CLASS = 'ng-valid',
     PRISTINE_CLASS = 'ng-pristine',
     DIRTY_CLASS = 'ng-dirty',
     UNTOUCHED_CLASS = 'ng-untouched',
-    TOUCHED_CLASS = 'ng-touched';
+    TOUCHED_CLASS = 'ng-touched',
+    PENDING_CLASS = 'ng-pending';
 
 /**
  * @ngdoc type
@@ -1578,6 +1579,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
 
   var parentForm = $element.inheritedData('$formController') || nullFormCtrl,
       invalidCount = 0, // used to easily determine if we are valid
+      pendingCount = 0, // used to easily determine if there are any pending validations
       $error = this.$error = {}; // keep invalid keys here
 
 
@@ -1605,6 +1607,36 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
     $error = ctrl.$error = {};
   };
 
+  this.$$setPending = function(validationErrorKey, promise, currentValue) {
+    pendingCount++;
+    ctrl.$pending = ctrl.$pending || {};
+    ctrl.$pending[validationErrorKey] = true;
+
+    ctrl.$valid = ctrl.$invalid = undefined;
+    parentForm.$$setPending(validationErrorKey, ctrl);
+
+    $animate.setClass($element, PENDING_CLASS, INVALID_CLASS + ' ' + VALID_CLASS);
+
+    //Special-case for (undefined|null|false|NaN) values to avoid
+    //having to compare each of them with each other
+    currentValue = currentValue || '';
+    promise.then(resolve(true), resolve(false));
+
+    function resolve(bool) {
+      return function() {
+        pendingCount--;
+        var value = ctrl.$viewValue || '';
+        if (currentValue === value) {
+          ctrl.$setValidity(validationErrorKey, bool);
+          delete ctrl.$pending[validationErrorKey];
+          if (pendingCount === 0) {
+            ctrl.$pending = undefined;
+          }
+        }
+      };
+    }
+  };
+
   /**
    * @ngdoc method
    * @name ngModel.NgModelController#$setValidity
@@ -1624,28 +1656,30 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
    * @param {boolean} isValid Whether the current state is valid (true) or invalid (false).
    */
   this.$setValidity = function(validationErrorKey, isValid) {
-    // Purposeful use of ! here to cast isValid to boolean in case it is undefined
+
+    // avoid doing anything if the validation value has not changed
     // jshint -W018
-    if ($error[validationErrorKey] === !isValid) return;
+    if (!ctrl.$pending && $error[validationErrorKey] === !isValid) return;
     // jshint +W018
 
     if (isValid) {
       if ($error[validationErrorKey]) invalidCount--;
-      if (!invalidCount) {
+      if (!invalidCount && !pendingCount) {
         toggleValidCss(true);
         ctrl.$valid = true;
         ctrl.$invalid = false;
       }
     } else if(!$error[validationErrorKey]) {
-      toggleValidCss(false);
-      ctrl.$invalid = true;
-      ctrl.$valid = false;
       invalidCount++;
+      if (!pendingCount) {
+        toggleValidCss(false);
+        ctrl.$invalid = true;
+        ctrl.$valid = false;
+      }
     }
 
     $error[validationErrorKey] = !isValid;
     toggleValidCss(isValid, validationErrorKey);
-
     parentForm.$setValidity(validationErrorKey, isValid, ctrl);
   };
 
@@ -1790,7 +1824,10 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
 
   this.$$runValidators = function(modelValue, viewValue) {
     forEach(ctrl.$validators, function(fn, name) {
-      ctrl.$setValidity(name, fn(modelValue, viewValue));
+      var result = fn(modelValue, viewValue);
+      isPromiseLike(result)
+          ? ctrl.$$setPending(name, result, modelValue)
+          : ctrl.$setValidity(name, result);
     });
     ctrl.$modelValue         = ctrl.$valid ? modelValue : undefined;
     ctrl.$$invalidModelValue = ctrl.$valid ? undefined : modelValue;
