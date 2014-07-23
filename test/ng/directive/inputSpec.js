@@ -343,7 +343,7 @@ describe('NgModelController', function() {
     });
   });
 
-  describe('$validators', function() {
+  describe('validations pipeline', function() {
 
     it('should perform validations when $validate() is called', function() {
       ctrl.$validators.uppercase = function(value) {
@@ -473,7 +473,7 @@ describe('NgModelController', function() {
 
     it('should render a validator asynchronously when a promise is returned', inject(function($q) {
       var defer;
-      ctrl.$validators.async = function(value) {
+      ctrl.$asyncValidators.promiseValidator = function(value) {
         defer = $q.defer();
         return defer.promise;
       };
@@ -482,7 +482,7 @@ describe('NgModelController', function() {
 
       expect(ctrl.$valid).toBeUndefined();
       expect(ctrl.$invalid).toBeUndefined();
-      expect(ctrl.$pending.async).toBe(true);
+      expect(ctrl.$pending.promiseValidator).toBe(true);
 
       defer.resolve();
       scope.$digest();
@@ -494,6 +494,91 @@ describe('NgModelController', function() {
       scope.$apply('value = "123"');
 
       defer.reject();
+      scope.$digest();
+
+      expect(ctrl.$valid).toBe(false);
+      expect(ctrl.$invalid).toBe(true);
+      expect(ctrl.$pending).toBeUndefined();
+    }));
+
+    it('should throw an error when a promise is not returned for an asynchronous validator', inject(function($q) {
+      ctrl.$asyncValidators.async = function(value) {
+        return true;
+      };
+
+      expect(function() {
+        scope.$apply('value = "123"');
+      }).toThrowMinErr("ngModel", "$asyncValidators",
+        "Expected asynchronous validator to return a promise but got 'true' instead.");
+    }));
+
+    it('should only run the async validators once all the sync validators have passed',
+      inject(function($q) {
+
+      var stages = {};
+
+      stages.sync = { status1 : false, status2: false, count : 0 };
+      ctrl.$validators.syncValidator1 = function(modelValue, viewValue) {
+        stages.sync.count++;
+        return stages.sync.status1;
+      };
+
+      ctrl.$validators.syncValidator2 = function(modelValue, viewValue) {
+        stages.sync.count++;
+        return stages.sync.status2;
+      };
+
+      stages.async = { defer : null, count : 0 };
+      ctrl.$asyncValidators.asyncValidator = function(modelValue, viewValue) {
+        stages.async.defer = $q.defer();
+        stages.async.count++;
+        return stages.async.defer.promise;
+      };
+
+      scope.$apply('value = "123"');
+
+      expect(ctrl.$valid).toBe(false);
+      expect(ctrl.$invalid).toBe(true);
+
+      expect(stages.sync.count).toBe(2);
+      expect(stages.async.count).toBe(0);
+
+      stages.sync.status1 = true;
+
+      scope.$apply('value = "456"');
+
+      expect(stages.sync.count).toBe(4);
+      expect(stages.async.count).toBe(0);
+
+      stages.sync.status2 = true;
+
+      scope.$apply('value = "789"');
+
+      expect(stages.sync.count).toBe(6);
+      expect(stages.async.count).toBe(1);
+
+      stages.async.defer.resolve();
+      scope.$apply();
+
+      expect(ctrl.$valid).toBe(true);
+      expect(ctrl.$invalid).toBe(false);
+    }));
+
+    it('should ignore expired async validation promises once delivered', inject(function($q) {
+      var defer, oldDefer, newDefer;
+      ctrl.$asyncValidators.async = function(value) {
+        defer = $q.defer();
+        return defer.promise;
+      };
+
+      scope.$apply('value = ""');
+      oldDefer = defer;
+      scope.$apply('value = "123"');
+      newDefer = defer;
+
+      newDefer.reject();
+      scope.$digest();
+      oldDefer.resolve();
       scope.$digest();
 
       expect(ctrl.$valid).toBe(false);
@@ -3168,9 +3253,10 @@ describe('NgModel animations', function() {
     return animations;
   }
 
-  function assertValidAnimation(animation, event, className) {
+  function assertValidAnimation(animation, event, classNameA, classNameB) {
     expect(animation.event).toBe(event);
-    expect(animation.args[1]).toBe(className);
+    expect(animation.args[1]).toBe(classNameA);
+    if(classNameB) expect(animation.args[2]).toBe(classNameB);
   }
 
   var doc, input, scope, model;
@@ -3195,10 +3281,8 @@ describe('NgModel animations', function() {
     model.$setValidity('required', false);
 
     var animations = findElementAnimations(input, $animate.queue);
-    assertValidAnimation(animations[0], 'removeClass', 'ng-valid');
-    assertValidAnimation(animations[1], 'addClass', 'ng-invalid');
-    assertValidAnimation(animations[2], 'removeClass', 'ng-valid-required');
-    assertValidAnimation(animations[3], 'addClass', 'ng-invalid-required');
+    assertValidAnimation(animations[0], 'setClass', 'ng-invalid', 'ng-valid ng-pending');
+    assertValidAnimation(animations[1], 'setClass', 'ng-invalid-required', 'ng-valid-required ng-pending');
   }));
 
   it('should trigger an animation when valid', inject(function($animate) {
@@ -3209,10 +3293,8 @@ describe('NgModel animations', function() {
     model.$setValidity('required', true);
 
     var animations = findElementAnimations(input, $animate.queue);
-    assertValidAnimation(animations[0], 'removeClass', 'ng-invalid');
-    assertValidAnimation(animations[1], 'addClass', 'ng-valid');
-    assertValidAnimation(animations[2], 'removeClass', 'ng-invalid-required');
-    assertValidAnimation(animations[3], 'addClass', 'ng-valid-required');
+    assertValidAnimation(animations[0], 'setClass', 'ng-valid', 'ng-invalid ng-pending');
+    assertValidAnimation(animations[1], 'setClass', 'ng-valid-required', 'ng-invalid-required ng-pending');
   }));
 
   it('should trigger an animation when dirty', inject(function($animate) {
@@ -3251,18 +3333,14 @@ describe('NgModel animations', function() {
     model.$setValidity('custom-error', false);
 
     var animations = findElementAnimations(input, $animate.queue);
-    assertValidAnimation(animations[0], 'removeClass', 'ng-valid');
-    assertValidAnimation(animations[1], 'addClass', 'ng-invalid');
-    assertValidAnimation(animations[2], 'removeClass', 'ng-valid-custom-error');
-    assertValidAnimation(animations[3], 'addClass', 'ng-invalid-custom-error');
+    assertValidAnimation(animations[0], 'setClass', 'ng-invalid', 'ng-valid ng-pending');
+    assertValidAnimation(animations[1], 'setClass', 'ng-invalid-custom-error', 'ng-valid-custom-error ng-pending');
 
     $animate.queue = [];
     model.$setValidity('custom-error', true);
 
     animations = findElementAnimations(input, $animate.queue);
-    assertValidAnimation(animations[0], 'removeClass', 'ng-invalid');
-    assertValidAnimation(animations[1], 'addClass', 'ng-valid');
-    assertValidAnimation(animations[2], 'removeClass', 'ng-invalid-custom-error');
-    assertValidAnimation(animations[3], 'addClass', 'ng-valid-custom-error');
+    assertValidAnimation(animations[0], 'setClass', 'ng-valid', 'ng-invalid ng-pending');
+    assertValidAnimation(animations[1], 'setClass', 'ng-valid-custom-error', 'ng-invalid-custom-error ng-pending');
   }));
 });

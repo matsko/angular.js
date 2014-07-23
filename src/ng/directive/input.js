@@ -7,7 +7,6 @@
   UNTOUCHED_CLASS: true,
   TOUCHED_CLASS: true,
 */
-
 var URL_REGEXP = /^(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/;
 var EMAIL_REGEXP = /^[a-z0-9!#$%&'*+\/=?^_`{|}~.-]+@[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
 var NUMBER_REGEXP = /^\s*(\-|\+)?(\d+|(\d*(\.\d*)))\s*$/;
@@ -1393,6 +1392,42 @@ var VALID_CLASS = 'ng-valid',
  *      provided with the model value as an argument and must return a true or false value depending
  *      on the response of that validation.
  *
+ * ```js
+ * ngModel.$validators.validCharacters = function(modelValue, viewValue) {
+ *   var value = modelValue || viewValue;
+ *   return /[0-9]+/.test(value) &&
+ *          /[a-z]+/.test(value) &&
+ *          /[A-Z]+/.test(value) &&
+ *          /\W+/.test(value);
+ * };
+ * ```
+ *
+ * @property {Object.<string, function>} $asyncValidators A collection of validations that are expected to
+ *      perform an asynchronous validation (e.g. a HTTP request). The validation function that is provided
+ *      is expected to return a promise when it is run during the model validation process. Once the promise
+ *      is delivered then the validation status will be set to true when resolved and false when rejected.
+ *      (Keep in mind that all asynchronous validators will only run when all former validators have passed.)
+ *
+ * Please note that if $http is used then it is important that the server returns a success HTTP response code
+ * in order to resolve the validation and a status level of `400` in order to reject the validation.
+ *
+ * ```js
+ * ngModel.$asyncValidators.uniqueUsername = function(modelValue, viewValue) {
+ *   var value = modelValue || viewValue;
+ *   return $http.get('/api/users/' + value).
+ *      then(function() {
+ *        //username exists, this means the validator fails
+ *        return false;
+ *      }, function() {
+ *        //username does not exist, therefore this validation is true
+ *        return true;
+ *      });
+ * };
+ * ```
+ *
+ * @param {string} name The name of the validator.
+ * @param {Function} validationFn The validation function that will be run.
+ *
  * @property {Array.<Function>} $viewChangeListeners Array of functions to execute whenever the
  *     view value has changed. It is called with no arguments, and its return value is ignored.
  *     This can be used in place of additional $watches against the model value.
@@ -1405,6 +1440,7 @@ var VALID_CLASS = 'ng-valid',
  * @property {boolean} $dirty True if user has already interacted with the control.
  * @property {boolean} $valid True if there is no error.
  * @property {boolean} $invalid True if at least one error on the control.
+ * @property {Object.<string, boolean>} $pending True if one or more asynchronous validators is still yet to be delivered.
  *
  * @description
  *
@@ -1512,6 +1548,8 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
   this.$viewValue = Number.NaN;
   this.$modelValue = Number.NaN;
   this.$validators = {};
+  this.$asyncValidators = {};
+  this.$validators = {};
   this.$parsers = [];
   this.$formatters = [];
   this.$viewChangeListeners = [];
@@ -1592,8 +1630,9 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
   // convenience method for easy toggling of classes
   function toggleValidCss(isValid, validationErrorKey) {
     validationErrorKey = validationErrorKey ? '-' + snake_case(validationErrorKey, '-') : '';
-    $animate.removeClass($element, (isValid ? INVALID_CLASS : VALID_CLASS) + validationErrorKey);
-    $animate.addClass($element, (isValid ? VALID_CLASS : INVALID_CLASS) + validationErrorKey);
+    var newClasses = (isValid ? VALID_CLASS : INVALID_CLASS) + validationErrorKey;
+    var oldClasses = (isValid ? INVALID_CLASS : VALID_CLASS) + validationErrorKey + ' ' + PENDING_CLASS;
+    $animate.setClass($element, newClasses, oldClasses);
   }
 
   this.$$resetValidity = function() {
@@ -1626,9 +1665,10 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
       return function() {
         pendingCount--;
         var value = ctrl.$viewValue || '';
-        if (currentValue === value) {
-          ctrl.$setValidity(validationErrorKey, bool);
+        if (ctrl.$pending && ctrl.$pending[validationErrorKey] && currentValue === value) {
           delete ctrl.$pending[validationErrorKey];
+          pendingCount = Object.keys(ctrl.$pending).length;
+          ctrl.$setValidity(validationErrorKey, bool);
           if (pendingCount === 0) {
             ctrl.$pending = undefined;
           }
@@ -1807,7 +1847,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
    * @name ngModel.NgModelController#$validate
    *
    * @description
-   * Runs each of the registered validations set on the $validators object.
+   * Runs each of the registered validators (first standard validators and then async validators).
    */
   this.$validate = function() {
     // ignore $validate before model initialized
@@ -1823,14 +1863,32 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
   };
 
   this.$$runValidators = function(modelValue, viewValue) {
-    forEach(ctrl.$validators, function(fn, name) {
-      var result = fn(modelValue, viewValue);
-      isPromiseLike(result)
-          ? ctrl.$$setPending(name, result, modelValue)
-          : ctrl.$setValidity(name, result);
+    var continueValidation = validate(ctrl.$validators, function(validator, result) {
+      ctrl.$setValidity(validator, result);
     });
+    
+    if (continueValidation) {
+      validate(ctrl.$asyncValidators, function(validator, result) {
+        if (!isPromiseLike(result)) {
+          throw $ngModelMinErr("$asyncValidators",
+            "Expected asynchronous validator to return a promise but got '{0}' instead.", result);
+        }
+        ctrl.$$setPending(validator, result, modelValue);
+      });
+    }
+
     ctrl.$modelValue         = ctrl.$valid ? modelValue : undefined;
     ctrl.$$invalidModelValue = ctrl.$valid ? undefined : modelValue;
+
+    function validate(validators, callback) {
+      var status = true;
+      forEach(validators, function(fn, name) {
+        var result = fn(modelValue, viewValue);
+        callback(name, result);
+        status = status && result;
+      });
+      return status;
+    }
   };
 
   /**
