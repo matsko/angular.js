@@ -223,6 +223,72 @@ describe('NgModelController', function() {
       expect(ctrl.$dirty).toBe(true);
       expect(parentFormCtrl.$setDirty).not.toHaveBeenCalled();
     });
+
+    it('should erase all remove all other errors when any parser returns undefined', function() {
+      var a, b, val = function(val, x) {
+        return x ? val : x;
+      };
+
+      ctrl.$parsers.push(function(v) { return val(v, a); });
+      ctrl.$parsers.push(function(v) { return val(v, b); });
+
+      ctrl.$validators.high = function(value) {
+        return !isDefined(value) || value > 5;
+      };
+
+      ctrl.$validators.even = function(value) {
+        return !isDefined(value) || value % 2 === 0;
+      };
+
+      a = b = true;
+
+      ctrl.$setViewValue('3');
+      expect(ctrl.$error).toEqual({ parse: false, high : true, even : true });
+
+      ctrl.$setViewValue('10');
+      expect(ctrl.$error).toEqual({ parse: false, high : false, even : false });
+
+      a = undefined;
+
+      ctrl.$setViewValue('12');
+      expect(ctrl.$error).toEqual({ parse: true });
+
+      a = true;
+      b = undefined;
+
+      ctrl.$setViewValue('14');
+      expect(ctrl.$error).toEqual({ parse: true });
+
+      a = undefined;
+      b = undefined;
+
+      ctrl.$setViewValue('16');
+      expect(ctrl.$error).toEqual({ parse: true });
+
+      a = b = false; //not undefined
+
+      ctrl.$setViewValue('2');
+      expect(ctrl.$error).toEqual({ parse: false, high : true, even : false });
+    });
+
+    it('should set the ng-invalid-parse and ng-valid-parse CSS class when parsers fail and pass', function() {
+      var pass = true;
+      ctrl.$parsers.push(function(v) {
+        return pass ? v : undefined;
+      });
+
+      var input = element.find('input');
+
+      ctrl.$setViewValue('1');
+      expect(input).toHaveClass('ng-valid-parse');
+      expect(input).not.toHaveClass('ng-invalid-parse');
+
+      pass = undefined;
+
+      ctrl.$setViewValue('2');
+      expect(input).not.toHaveClass('ng-valid-parse');
+      expect(input).toHaveClass('ng-invalid-parse');
+    });
   });
 
 
@@ -1637,14 +1703,14 @@ describe('input', function() {
         changeInputValueTo('2012-12');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.min).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function (){
         changeInputValueTo('2013-07');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2013, 6, 1));
-        expect(scope.form.alias.$error.min).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -1657,14 +1723,14 @@ describe('input', function() {
         changeInputValueTo('2012-03');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2012, 2, 1));
-        expect(scope.form.alias.$error.max).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
 
       it('should invalidate', function (){
         changeInputValueTo('2013-05');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeUndefined();
-        expect(scope.form.alias.$error.max).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
     });
   });
@@ -1755,14 +1821,14 @@ describe('input', function() {
         changeInputValueTo('2012-W12');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.min).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function (){
         changeInputValueTo('2013-W03');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2013, 0, 17));
-        expect(scope.form.alias.$error.min).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -1775,14 +1841,14 @@ describe('input', function() {
         changeInputValueTo('2012-W01');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2012, 0, 5));
-        expect(scope.form.alias.$error.max).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
 
       it('should invalidate', function (){
         changeInputValueTo('2013-W03');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeUndefined();
-        expect(scope.form.alias.$error.max).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
     });
   });
@@ -1872,14 +1938,14 @@ describe('input', function() {
         changeInputValueTo('1999-12-31T01:02');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.min).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function (){
         changeInputValueTo('2000-01-01T23:02');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2000, 0, 1, 23, 2));
-        expect(scope.form.alias.$error.min).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -1892,14 +1958,14 @@ describe('input', function() {
         changeInputValueTo('2019-12-31T01:02');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.max).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function() {
         changeInputValueTo('2000-01-01T01:02');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2000, 0, 1, 1, 2));
-        expect(scope.form.alias.$error.max).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -2017,14 +2083,14 @@ describe('input', function() {
         changeInputValueTo('01:02');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.min).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function (){
         changeInputValueTo('23:02');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(0, 0, 1, 23, 2));
-        expect(scope.form.alias.$error.min).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -2037,14 +2103,14 @@ describe('input', function() {
         changeInputValueTo('23:00');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.max).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function() {
         changeInputValueTo('05:30');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(0, 0, 1, 5, 30));
-        expect(scope.form.alias.$error.max).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -2162,14 +2228,14 @@ describe('input', function() {
         changeInputValueTo('1999-12-31');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.min).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function (){
         changeInputValueTo('2000-01-01');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2000, 0, 1));
-        expect(scope.form.alias.$error.min).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -2182,14 +2248,14 @@ describe('input', function() {
         changeInputValueTo('2019-12-31');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.max).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
       });
 
       it('should validate', function() {
         changeInputValueTo('2000-01-01');
         expect(inputElm).toBeValid();
         expect(+scope.value).toBe(+new Date(2000, 0, 1));
-        expect(scope.form.alias.$error.max).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
     });
 
@@ -2276,13 +2342,17 @@ describe('input', function() {
     });
 
 
-    it('should invalidate number if suffering from bad input', function() {
+    it('should only invalidate the model if suffering from bad input when the data is parsed', function() {
       compileInput('<input type="number" ng-model="age" />', {
         valid: false,
         badInput: true
       });
 
-      changeInputValueTo('10a');
+      expect(scope.age).toBeUndefined();
+      expect(inputElm).toBeValid();
+
+      changeInputValueTo('this-will-fail-because-of-the-badInput-flag');
+
       expect(scope.age).toBeUndefined();
       expect(inputElm).toBeInvalid();
     });
@@ -2311,12 +2381,12 @@ describe('input', function() {
         changeInputValueTo('1');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.min).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
 
         changeInputValueTo('100');
         expect(inputElm).toBeValid();
         expect(scope.value).toBe(100);
-        expect(scope.form.alias.$error.min).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
 
       it('should validate even if min value changes on-the-fly', function(done) {
@@ -2343,12 +2413,12 @@ describe('input', function() {
         changeInputValueTo('20');
         expect(inputElm).toBeInvalid();
         expect(scope.value).toBeFalsy();
-        expect(scope.form.alias.$error.max).toBeTruthy();
+        expect(scope.form.alias.$error.parse).toBeTruthy();
 
         changeInputValueTo('0');
         expect(inputElm).toBeValid();
         expect(scope.value).toBe(0);
-        expect(scope.form.alias.$error.max).toBeFalsy();
+        expect(scope.form.alias.$error.parse).toBeFalsy();
       });
 
       it('should validate even if max value changes on-the-fly', function(done) {
@@ -2414,7 +2484,7 @@ describe('input', function() {
       changeInputValueTo('invalid@');
       expect(scope.email).toBeUndefined();
       expect(inputElm).toBeInvalid();
-      expect(widget.$error.email).toBeTruthy();
+      expect(widget.$error.parse).toBeTruthy();
     });
 
 
@@ -2448,7 +2518,7 @@ describe('input', function() {
       changeInputValueTo('invalid.com');
       expect(scope.url).toBeUndefined();
       expect(inputElm).toBeInvalid();
-      expect(widget.$error.url).toBeTruthy();
+      expect(widget.$error.parse).toBeTruthy();
     });
 
 
@@ -2816,13 +2886,13 @@ describe('input', function() {
     });
 
 
-    it('should set $valid even if model fails other validators', function() {
-      compileInput('<input type="email" ng-model="value" required />');
-      changeInputValueTo('bademail');
+    it('should consider bad input as an error before any other errors are considered', function() {
+      compileInput('<input type="number" ng-model="value" required />', { badInput : true });
+      changeInputValueTo('abc123');
 
-      expect(inputElm).toHaveClass('ng-valid-required');
-      expect(inputElm.controller('ngModel').$error.required).toBe(false);
-      expect(inputElm).toBeInvalid(); // invalid because of the email validator
+      expect(inputElm).toHaveClass('ng-invalid-parse');
+      expect(inputElm.controller('ngModel').$error.parse).toBe(true);
+      expect(inputElm).toBeInvalid(); // invalid because of the number validator
     });
 
 
