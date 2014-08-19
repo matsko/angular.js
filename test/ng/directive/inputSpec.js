@@ -2357,6 +2357,59 @@ describe('input', function() {
       expect(inputElm).toBeInvalid();
     });
 
+    it('should throw an error if the scope model value is defined, but not a number', function() {
+      compileInput('<input type="number" ng-model="value" name="alias" />');
+
+      expect(function() {
+        scope.value = 500;
+        scope.$digest();
+      }).not.toThrow();
+
+      expect(function() {
+        scope.value = '50';
+        scope.$digest();
+      }).not.toThrow();
+
+      expect(function() {
+        scope.value = 'abc';
+        scope.$digest();
+      }).toThrowMinErr('ngModel', 'numberFormatter', "Expected `abc` to be a number");
+
+      expect(function() {
+        scope.value = 0;
+        scope.$digest();
+      }).not.toThrow();
+
+      expect(function() {
+        scope.value = false;
+        scope.$digest();
+      }).toThrowMinErr('ngModel', 'numberFormatter', "Expected `false` to be a number");
+
+      expect(function() {
+        scope.value = null;
+        scope.$digest();
+      }).not.toThrow();
+
+      expect(function() {
+        scope.value = true;
+        scope.$digest();
+      }).toThrowMinErr('ngModel', 'numberFormatter', "Expected `true` to be a number");
+
+      expect(function() {
+        scope.value = undefined;
+        scope.$digest();
+      }).not.toThrow();
+
+      expect(function() {
+        scope.value = '';
+        scope.$digest();
+      }).not.toThrow();
+
+      expect(function() {
+        scope.value = {};
+        scope.$digest();
+      }).toThrowMinErr('ngModel', 'numberFormatter', "Expected `{}` to be a number");
+    });
 
     it('should validate number if transition from bad input to empty string', function() {
       var validity = {
@@ -2402,6 +2455,26 @@ describe('input', function() {
           done();
         });
       });
+
+      it('should throw an error if the scope model value does not suite the min value', function() {
+        scope.min = 10;
+        compileInput('<input type="number" ng-model="value" name="alias" min="{{min}}" required />');
+
+        expect(function() {
+          scope.value = 5;
+          scope.$digest();
+        }).toThrowMinErr('ngModel', 'numberFormatter', "Expected `5` to be greater than or equal to `10`");
+
+        expect(function() {
+          scope.value = '';
+          scope.$digest();
+        }).not.toThrow();
+
+        expect(function() {
+          scope.value = 0;
+          scope.$digest();
+        }).toThrowMinErr('ngModel', 'numberFormatter', "Expected `0` to be greater than or equal to `10`");
+      });
     });
 
 
@@ -2433,6 +2506,26 @@ describe('input', function() {
           expect(inputElm).toBeInvalid();
           done();
         });
+      });
+
+      it('should throw an error if the scope model value does not suite the max value', function() {
+        scope.max = 10;
+        compileInput('<input type="number" ng-model="value" name="alias" max="{{max}}" required />');
+
+        expect(function() {
+          scope.value = 50;
+          scope.$digest();
+        }).toThrowMinErr('ngModel', 'numberFormatter', "Expected `50` to be less than or equal to `10`");
+
+        expect(function() {
+          scope.value = '';
+          scope.$digest();
+        }).not.toThrow();
+
+        expect(function() {
+          scope.value = 0;
+          scope.$digest();
+        }).not.toThrow();
       });
     });
 

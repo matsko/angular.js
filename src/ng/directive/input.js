@@ -1113,7 +1113,8 @@ function numberInputType(scope, element, attr, ctrl, $sniffer, $browser) {
 
   ctrl.$formatters.push(function(value) {
     if (!ctrl.$isEmpty(value)) {
-      if (!isNumber(value)) {
+      // JavaScript isNaN will not work for boolean values
+      if (!isNumber(value) && (isBoolean(value) || isNaN(value))) {
         throw $ngModelMinErr('numberFormatter', 'Expected `{0}` to be a number', value);
       }
       value = value.toString();
@@ -1125,11 +1126,27 @@ function numberInputType(scope, element, attr, ctrl, $sniffer, $browser) {
     ctrl.$parsers.push(function(value) {
       return value >= parseFloat(attr.min) ? value : undefined;
     });
+
+    ctrl.$formatters.push(function(value) {
+      var min = parseFloat(attr.min);
+      if (isDefined(min) && isDefined(value) && parseFloat(value) < min) {
+        throw $ngModelMinErr('numberFormatter', 'Expected `{0}` to be greater than or equal to `{1}`', value, min);
+      }
+      return value;
+    });
   }
 
   if (attr.max) {
     ctrl.$parsers.push(function(value) {
       return value <= parseFloat(attr.max) ? value : undefined;
+    });
+
+    ctrl.$formatters.push(function(value) {
+      var max = parseFloat(attr.max);
+      if (isDefined(max) && isDefined(value) && parseFloat(value) > max) {
+        throw $ngModelMinErr('numberFormatter', 'Expected `{0}` to be less than or equal to `{1}`', value, max);
+      }
+      return value;
     });
   }
 }
@@ -1863,7 +1880,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
       ctrl.$$resetValidity();
       ctrl.$setValidity('parse', false);
     } else if (ctrl.$modelValue !== modelValue &&
-                (isUndefined(ctrl.$$invalidModelValue) || ctrl.$$invalidModelValue != modelValue)) {
+                (isUndefined(ctrl.$$invalidModelValue) || ctrl.$$invalidModelValue !== modelValue)) {
       ctrl.$setValidity('parse', true);
       ctrl.$$runValidators(modelValue, viewValue);
     }
@@ -1973,7 +1990,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
 
     // if scope model value and ngModel value are out of sync
     if (ctrl.$modelValue !== modelValue &&
-        (isUndefined(ctrl.$$invalidModelValue) || ctrl.$$invalidModelValue != modelValue)) {
+        (isUndefined(ctrl.$$invalidModelValue) || ctrl.$$invalidModelValue !== modelValue)) {
 
       var formatters = ctrl.$formatters,
           idx = formatters.length;
