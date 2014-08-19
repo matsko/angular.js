@@ -18,6 +18,7 @@ var MONTH_REGEXP = /^(\d{4})-(\d\d)$/;
 var TIME_REGEXP = /^(\d\d):(\d\d)$/;
 var DEFAULT_REGEXP = /(\s+|^)default(\s+|$)/;
 
+var $ngModelMinErr = new minErr('ngModel');
 var inputType = {
 
   /**
@@ -866,13 +867,6 @@ var inputType = {
   'file': noop
 };
 
-// A helper function to call $setValidity and return the value / undefined,
-// a pattern that is repeated a lot in the input validation logic.
-function validate(ctrl, validatorName, validity, value){
-  ctrl.$setValidity(validatorName, validity);
-  return validity ? value : undefined;
-}
-
 function testFlags(validity, flags) {
   var i, flag;
   if (flags) {
@@ -884,25 +878,6 @@ function testFlags(validity, flags) {
     }
   }
   return false;
-}
-
-// Pass validity so that behaviour can be mocked easier.
-function addNativeHtml5Validators(ctrl, validatorName, badFlags, ignoreFlags, validity) {
-  if (isObject(validity)) {
-    ctrl.$$hasNativeValidators = true;
-    var validator = function(value) {
-      // Don't overwrite previous validation, don't consider valueMissing to apply (ng-required can
-      // perform the required validation)
-      if (!ctrl.$error[validatorName] &&
-          !testFlags(validity, ignoreFlags) &&
-          testFlags(validity, badFlags)) {
-        ctrl.$setValidity(validatorName, false);
-        return;
-      }
-      return value;
-    };
-    ctrl.$parsers.push(validator);
-  }
 }
 
 function textInputType(scope, element, attr, ctrl, $sniffer, $browser) {
@@ -1055,20 +1030,13 @@ function createDateParser(regexp, mapping) {
 
 function createDateInputType(type, regexp, parseDate, format) {
    return function dynamicDateInputType(scope, element, attr, ctrl, $sniffer, $browser, $filter) {
+      badInputChecker(scope, element, attr, ctrl);
       textInputType(scope, element, attr, ctrl, $sniffer, $browser);
 
+      ctrl.$$parserName = type;
       ctrl.$parsers.push(function(value) {
-         if(ctrl.$isEmpty(value)) {
-            ctrl.$setValidity(type, true);
-            return null;
-         }
-
-         if(regexp.test(value)) {
-            ctrl.$setValidity(type, true);
-            return parseDate(value);
-         }
-
-         ctrl.$setValidity(type, false);
+         if(ctrl.$isEmpty(value)) return null;
+         if(regexp.test(value)) return parseDate(value);
          return undefined;
       });
 
@@ -1080,81 +1048,71 @@ function createDateInputType(type, regexp, parseDate, format) {
       });
 
       if(attr.min) {
-         var minValidator = function(value) {
-            var valid = ctrl.$isEmpty(value) ||
-               (parseDate(value) >= parseDate(attr.min));
-            ctrl.$setValidity('min', valid);
-            return valid ? value : undefined;
-         };
-
-         ctrl.$parsers.push(minValidator);
-         ctrl.$formatters.push(minValidator);
+        ctrl.$validators.min = function(value) {
+          return ctrl.$isEmpty(value) || isUndefined(attr.min) || parseDate(value) >= parseDate(attr.min);
+        };
       }
 
       if(attr.max) {
-         var maxValidator = function(value) {
-            var valid = ctrl.$isEmpty(value) ||
-               (parseDate(value) <= parseDate(attr.max));
-            ctrl.$setValidity('max', valid);
-            return valid ? value : undefined;
-         };
-
-         ctrl.$parsers.push(maxValidator);
-         ctrl.$formatters.push(maxValidator);
+        ctrl.$validators.max = function(value) {
+          return ctrl.$isEmpty(value) || isUndefined(attr.max) || parseDate(value) <= parseDate(attr.max);
+        };
       }
    };
 }
 
 var numberBadFlags = ['badInput'];
 
+function badInputChecker(scope, element, attr, ctrl) {
+  var node = element[0];
+  var nativeValidation = ctrl.$$hasNativeValidators = isObject(node.validity);
+  if (nativeValidation) {
+    ctrl.$parsers.push(function(value) {
+      var validity = element.prop(VALIDITY_STATE_PROPERTY) || {};
+      return validity.badInput || validity.typeMismatch ? undefined : value;
+    });
+  }
+}
+
 function numberInputType(scope, element, attr, ctrl, $sniffer, $browser) {
+  badInputChecker(scope, element, attr, ctrl);
   textInputType(scope, element, attr, ctrl, $sniffer, $browser);
 
+  ctrl.$$parserName = 'number';
   ctrl.$parsers.push(function(value) {
-    var empty = ctrl.$isEmpty(value);
-    if (empty || NUMBER_REGEXP.test(value)) {
-      ctrl.$setValidity('number', true);
-      return value === '' ? null : (empty ? value : parseFloat(value));
-    } else {
-      ctrl.$setValidity('number', false);
-      return undefined;
-    }
+    if(ctrl.$isEmpty(value))      return null;
+    if(NUMBER_REGEXP.test(value)) return parseFloat(value);
+    return undefined;
   });
 
-  addNativeHtml5Validators(ctrl, 'number', numberBadFlags, null, ctrl.$$validityState);
-
   ctrl.$formatters.push(function(value) {
-    return ctrl.$isEmpty(value) ? '' : '' + value;
+    if (!ctrl.$isEmpty(value)) {
+      if (!isNumber(value)) {
+        throw $ngModelMinErr('numfmt', 'Expected `{0}` to be a number', value);
+      }
+      value = value.toString();
+    }
+    return value;
   });
 
   if (attr.min) {
-    var minValidator = function(value) {
-      var min = parseFloat(attr.min);
-      return validate(ctrl, 'min', ctrl.$isEmpty(value) || value >= min, value);
+    ctrl.$validators.min = function(value) {
+      return ctrl.$isEmpty(value) || isUndefined(attr.min) || value >= parseFloat(attr.min);
     };
-
-    ctrl.$parsers.push(minValidator);
-    ctrl.$formatters.push(minValidator);
   }
 
   if (attr.max) {
-    var maxValidator = function(value) {
-      var max = parseFloat(attr.max);
-      return validate(ctrl, 'max', ctrl.$isEmpty(value) || value <= max, value);
+    ctrl.$validators.max = function(value) {
+      return ctrl.$isEmpty(value) || isUndefined(attr.max) || value <= parseFloat(attr.max);
     };
-
-    ctrl.$parsers.push(maxValidator);
-    ctrl.$formatters.push(maxValidator);
   }
-
-  ctrl.$formatters.push(function(value) {
-    return validate(ctrl, 'number', ctrl.$isEmpty(value) || isNumber(value), value);
-  });
 }
 
 function urlInputType(scope, element, attr, ctrl, $sniffer, $browser) {
+  badInputChecker(scope, element, attr, ctrl);
   textInputType(scope, element, attr, ctrl, $sniffer, $browser);
 
+  ctrl.$$parserName = 'url';
   ctrl.$validators.url = function(modelValue, viewValue) {
     var value = modelValue || viewValue;
     return ctrl.$isEmpty(value) || URL_REGEXP.test(value);
@@ -1162,8 +1120,10 @@ function urlInputType(scope, element, attr, ctrl, $sniffer, $browser) {
 }
 
 function emailInputType(scope, element, attr, ctrl, $sniffer, $browser) {
+  badInputChecker(scope, element, attr, ctrl);
   textInputType(scope, element, attr, ctrl, $sniffer, $browser);
 
+  ctrl.$$parserName = 'email';
   ctrl.$validators.email = function(modelValue, viewValue) {
     var value = modelValue || viewValue;
     return ctrl.$isEmpty(value) || EMAIL_REGEXP.test(value);
@@ -1199,7 +1159,7 @@ function parseConstantExpr($parse, context, name, expression, fallback) {
   if (isDefined(expression)) {
     parseFn = $parse(expression);
     if (!parseFn.constant) {
-      throw new minErr('ngModel')('constexpr', 'Expected constant expression for `{0}`, but saw ' +
+      throw $ngModelMinErr('constexpr', 'Expected constant expression for `{0}`, but saw ' +
                                    '`{1}`.', name, expression);
     }
     return parseFn(context);
@@ -1569,7 +1529,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
       ctrl = this;
 
   if (!ngModelSet) {
-    throw minErr('ngModel')('nonassign', "Expression '{0}' is non-assignable. Element: {1}",
+    throw $ngModelMinErr('nonassign', "Expression '{0}' is non-assignable. Element: {1}",
         $attr.ngModel, startingTag($element));
   }
 
@@ -1634,6 +1594,17 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
     $animate.addClass($element, (isValid ? VALID_CLASS : INVALID_CLASS) + validationErrorKey);
   }
 
+  this.$$resetValidity = function() {
+    forEach(ctrl.$error, function(val, key) {
+      var validationKey = snake_case(key, '-');
+      $animate.removeClass($element, VALID_CLASS + validationKey);
+      $animate.removeClass($element, INVALID_CLASS + validationKey);
+    });
+
+    invalidCount = 0;
+    $error = ctrl.$error = {};
+  };
+
   /**
    * @ngdoc method
    * @name ngModel.NgModelController#$setValidity
@@ -1665,7 +1636,7 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
         ctrl.$valid = true;
         ctrl.$invalid = false;
       }
-    } else {
+    } else if(!$error[validationErrorKey]) {
       toggleValidCss(false);
       ctrl.$invalid = true;
       ctrl.$valid = false;
@@ -1854,16 +1825,27 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
       parentForm.$setDirty();
     }
 
-    var modelValue = viewValue;
-    forEach(ctrl.$parsers, function(fn) {
-      modelValue = fn(modelValue);
-    });
-
-    if (ctrl.$modelValue !== modelValue &&
-        (isUndefined(ctrl.$$invalidModelValue) || ctrl.$$invalidModelValue != modelValue)) {
-      ctrl.$$runValidators(modelValue, viewValue);
-      ctrl.$$writeModelToScope();
+    var hasBadInput, modelValue = viewValue;
+    for(var i = 0; i < ctrl.$parsers.length; i++) {
+      modelValue = ctrl.$parsers[i](modelValue);
+      if(isUndefined(modelValue)) {
+        hasBadInput = true;
+        break;
+      }
     }
+
+    var parserName = ctrl.$$parserName || 'parse';
+    if (hasBadInput) {
+      ctrl.$modelValue = undefined;
+      ctrl.$$resetValidity();
+      ctrl.$setValidity(parserName, false);
+    } else if (ctrl.$modelValue !== modelValue &&
+                (isUndefined(ctrl.$$invalidModelValue) || ctrl.$$invalidModelValue != modelValue)) {
+      ctrl.$setValidity(parserName, true);
+      ctrl.$$runValidators(modelValue, viewValue);
+    }
+
+    ctrl.$$writeModelToScope();
   };
 
   this.$$writeModelToScope = function() {
