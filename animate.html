@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html ng-app="MyApp">
+<head>
+<title>My Angular App</title>
+</head>
+<style>
+.animate-me > div {
+  transition:1s linear all;
+  width:200px;
+  height:200px;
+  border:2px solid black;
+  display:inline-block;
+  margin:100px;
+}
+div {
+  background:grey;
+}
+.red {
+  background:red;
+}
+.blue {
+  background:blue;
+}
+.yellow {
+  background:yellow;
+}
+.orange {
+  background:orange;
+}
+.teal {
+  background:teal;
+}
+.magenta {
+  background:magenta;
+}
+.rotate {
+  -webkit-transform: rotate(259deg);
+  transform: rotate(259deg);
+}
+.ng-leave-active {
+  opacity:0;
+}
+</style>
+<body>
+
+<section animate-me class="animate-me" ng-click="start()">
+  <div class="one">one</div>
+  <div class="two">two</div>
+  <div class="three">three</div>
+</section>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script type="text/javascript" src="./build/angular.js"></script>
+<script type="text/javascript" src="./build/angular-animate.js"></script>
+<script type="text/javascript">
+angular.module("MyApp", ['ngAnimateSequence'])
+
+  .directive('animateMe', ['$animateQueue', '$animateSequence', function($animateQueue, $animateSequence) {
+    var seq1 = $animateQueue()
+      .addClass('%0','red', { 'transform':'scale(2)' })
+      .addClass('%0','blue')
+      .addClass('%0','yellow')
+      .removeClass('%0','yellow')
+      .removeClass('%0','blue')
+      .removeClass('%0','red');
+
+    var seq2 = $animateQueue()
+      .addClass('%0','orange')
+      .addClass('%0','teal')
+      .addClass('%0','magenta')
+      .removeClass('%0','magenta')
+      .removeClass('%0','teal')
+      .removeClass('%0','orange');
+
+    var seq3 = $animateQueue()
+      .addClass('%0','rotate')
+      .removeClass('%0','rotate')
+      .addClass('%0','rotate')
+      .removeClass('%0','rotate')
+      .addClass('%0','rotate')
+      .removeClass('%0','rotate')
+
+    var seqO = $animateQueue().leave();
+
+    return function(scope, element, attrs) {
+      var one = element.find('div')[0];
+      var two = element.find('div')[1];
+      var three = element.find('div')[2];
+      
+      var timeline = $animateSequence([
+        [ seq1(one), seq2(two), seq3(three) ],
+        [ seqO(one), seqO(two), seqO(three) ]
+      ]);
+
+      scope.start = function() {
+        timeline().start().then(function() {
+          alert('complete');
+        });
+      };
+    }
+  }]);
+</script>
+</body>
+</html>

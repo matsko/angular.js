@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html ng-app="MyApp">
+<head>
+<title>My Angular App</title>
+</head>
+<style>
+.animate-me > * {
+  transition:1s linear all;
+}
+.animate-me > * {
+  vertical-align:middle;
+  width:300px;
+  height:300px;
+  margin:50px;
+  border:2px solid black;
+  display:inline-block;
+}
+div {
+  background:grey;
+}
+.red {
+  background:red;
+}
+.blue {
+  background:blue;
+}
+.yellow {
+  background:yellow;
+}
+.orange {
+  background:orange;
+}
+.teal {
+  background:teal;
+}
+.magenta {
+  background:magenta;
+}
+.rotate {
+  -webkit-transform: rotate(259deg);
+  transform: rotate(259deg);
+}
+.ng-leave-active {
+  opacity:0;
+}
+</style>
+<body>
+
+<section animate-me class="animate-me" ng-click="start()">
+  <div class="one">one</div>
+  <div class="two">two</div>
+  <section id="canvas">
+  </section>
+</section>
+
+<script type="text/javascript" src="./build/angular.js"></script>
+<script type="text/javascript" src="./build/angular-animate.js?a"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/raphael/2.1.2/raphael-min.js"></script>
+<script type="text/javascript">
+angular.module("MyApp", ['ngAnimateSequence'])
+
+  .factory('canvasDriver', ['$$q', function($$q) {
+    return function() {
+      var defer = $$q.defer();
+      var chain = defer.promise;
+      var cache = {};
+      return {
+        rect : function(paper, name, options) {
+          chain = chain.then(function() {
+            var rect = paper.rect.apply(paper, options.dimensions);
+            cache[name] = rect;
+            rect.attr(options.styles);
+          });
+        },
+
+        animate : function(paper, name, options) {
+          chain = chain.then(function() {
+            var obj = cache[name];
+            var defer = $$q.defer();
+            obj.animate(Raphael.animation(options.styles, options.duration, undefined, function() {
+              defer.resolve(); 
+            }));
+            return defer.promise;
+          });
+        },
+
+        start : function(fn) {
+          chain.then(fn);
+          defer.resolve();
+        }
+      }
+    };
+  }])
+
+  .directive('animateMe', ['$animateQueue', '$animateSequence', 'canvasDriver',
+                   function($animateQueue, $animateSequence, canvasDriver) {
+    //$animate.addClass
+    //$animate.addClass
+    var seq1 = $animateQueue()
+      .addClass('%0','red', { 'transform':'scale(2)' })
+      .addClass('%0','blue')
+      .addClass('%0','yellow')
+      .removeClass('%0','yellow')
+      .removeClass('%0','blue')
+      .removeClass('%0','red');
+
+    var seq2 = $animateQueue(canvasDriver)
+      .rect('%0','1', {
+        dimensions : [0, 0, 200, 200],
+        styles : {
+          fill:'#555555',
+          stroke:'none'
+        }
+      })
+      .animate('%0', '1', {
+        duration : 2000,
+        styles : {
+          fill:'#990099'
+        }
+      })
+      .rect('%0','2', {
+        dimensions : [100, 100, 200, 200],
+        styles : {
+          fill:'#FFFFFF',
+          stroke:'none'
+        }
+      })
+      .animate('%0','2', {
+        duration : 2000,
+        styles : {
+          fill:'#009900'
+        }
+      })
+      .animate('%0','2', {
+        duration : 500,
+        styles : {
+          fill:'#888888',
+          width:300,
+          height:300,
+          x:0,
+          y:0
+        }
+      })
+
+    var seq3 = $animateQueue()
+      .addClass('%0','rotate')
+      .removeClass('%0','rotate')
+
+    var seqO = $animateQueue().leave('%0');
+
+    return function(scope, element, attrs) {
+      var one = angular.element(element.find('div')[0]);
+      var two = angular.element(element.find('div')[1]);
+      var canvas = element.find('section')[0];
+      var paper = new Raphael(canvas, 300, 300);
+      
+      var loop = $animateSequence([
+        [ seq1(one), seq2(paper), seq3(two) ],
+        [ seqO(one), seqO(angular.element(canvas)), seqO(two) ]
+      ]);
+
+      scope.start = function() {
+        loop().start().then(function() {
+          alert('complete');
+        });
+      };
+    }
+  }]);
+</script>
+</body>
+</html>
