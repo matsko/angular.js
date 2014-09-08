@@ -96,6 +96,15 @@ var $AnimateProvider = ['$provide', function($provide) {
       return currentDefer.promise;
     }
 
+    function applyStyles(element, styles) {
+      if (angular.isObject(styles)) {
+        if (styles.before || styles.after) {
+          styles = extend(styles.before || {}, styles.after || {});
+        }
+        element.css(styles);
+      }
+    }
+
     /**
      *
      * @ngdoc service
@@ -128,9 +137,11 @@ var $AnimateProvider = ['$provide', function($provide) {
        *   a child (if the after element is not present)
        * @param {DOMElement} after the sibling element which will append the element
        *   after itself
+       * @param {object=} styles an optional collection of styles that will be applied to the element.
        * @return {Promise} the animation callback promise
        */
-      enter : function(element, parent, after) {
+      enter : function(element, parent, after, styles) {
+        applyStyles(element, styles);
         after ? after.after(element)
               : parent.prepend(element);
         return asyncPromise();
@@ -144,9 +155,10 @@ var $AnimateProvider = ['$provide', function($provide) {
        * @description Removes the element from the DOM. When the function is called a promise
        * is returned that will be resolved at a later time.
        * @param {DOMElement} element the element which will be removed from the DOM
+       * @param {object=} styles an optional collection of styles that will be applied to the element.
        * @return {Promise} the animation callback promise
        */
-      leave : function(element) {
+      leave : function(element, styles) {
         element.remove();
         return asyncPromise();
       },
@@ -166,12 +178,13 @@ var $AnimateProvider = ['$provide', function($provide) {
        *   inserted into (if the after element is not present)
        * @param {DOMElement} after the sibling element where the element will be
        *   positioned next to
+       * @param {object=} styles an optional collection of styles that will be applied to the element.
        * @return {Promise} the animation callback promise
        */
-      move : function(element, parent, after) {
+      move : function(element, parent, after, styles) {
         // Do not remove element before insert. Removing will cause data associated with the
         // element to be dropped. Insert will implicitly do the remove.
-        return this.enter(element, parent, after);
+        return this.enter(element, parent, after, styles);
       },
 
       /**
@@ -184,15 +197,17 @@ var $AnimateProvider = ['$provide', function($provide) {
        * @param {DOMElement} element the element which will have the className value
        *   added to it
        * @param {string} className the CSS class which will be added to the element
+       * @param {object=} styles an optional collection of styles that will be applied to the element.
        * @return {Promise} the animation callback promise
        */
-      addClass : function(element, className) {
+      addClass : function(element, className, styles) {
         className = !isString(className)
                         ? (isArray(className) ? className.join(' ') : '')
                         : className;
         forEach(element, function (element) {
           jqLiteAddClass(element, className);
         });
+        applyStyles(element, styles);
         return asyncPromise();
       },
 
@@ -206,15 +221,17 @@ var $AnimateProvider = ['$provide', function($provide) {
        * @param {DOMElement} element the element which will have the className value
        *   removed from it
        * @param {string} className the CSS class which will be removed from the element
+       * @param {object=} styles an optional collection of styles that will be applied to the element.
        * @return {Promise} the animation callback promise
        */
-      removeClass : function(element, className) {
+      removeClass : function(element, className, styles) {
         className = !isString(className)
                         ? (isArray(className) ? className.join(' ') : '')
                         : className;
         forEach(element, function (element) {
           jqLiteRemoveClass(element, className);
         });
+        applyStyles(element, styles);
         return asyncPromise();
       },
 
@@ -229,11 +246,13 @@ var $AnimateProvider = ['$provide', function($provide) {
        *   removed from it
        * @param {string} add the CSS classes which will be added to the element
        * @param {string} remove the CSS class which will be removed from the element
+       * @param {object=} styles an optional collection of styles that will be applied to the element.
        * @return {Promise} the animation callback promise
        */
-      setClass : function(element, add, remove) {
+      setClass : function(element, add, remove, styles) {
         this.addClass(element, add);
         this.removeClass(element, remove);
+        applyStyles(element, styles);
         return asyncPromise();
       },
 
