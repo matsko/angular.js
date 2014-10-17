@@ -1,0 +1,17 @@
+<link rel="component" href="animations.html" />
+
+<ng-animation order="enter, leave" wait="something">
+  <ng-animate-sequence on="enter">
+    <ng-animate selector="..."></ng-animate>
+    <ng-animate selector="..."></ng-animate>
+  </ng-animate-sequence>
+
+  <ng-animate-sequence on="leave">
+    <ng-animate selector="..."></ng-animate>
+    <ng-animate selector="..."></ng-animate>
+  </ng-animate-sequence>
+</ng-animation>
+
+var layoutAnimation = $animateLayout(element);
+layoutAnimation.enter(child);
+layoutAnimation.leave();

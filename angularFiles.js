@@ -13,6 +13,7 @@ var angularFiles = {
 
     'src/ng/anchorScroll.js',
     'src/ng/animate.js',
+    'src/ng/animateViewPort.js',
     'src/ng/asyncCallback.js',
     'src/ng/browser.js',
     'src/ng/cacheFactory.js',
@@ -79,7 +80,8 @@ var angularFiles = {
 
   'angularModules': {
     'ngAnimate': [
-      'src/ngAnimate/animate.js'
+      'src/ngAnimate/animate.js',
+      'src/ngAnimate/layout.js'
     ],
     'ngCookies': [
       'src/ngCookies/cookies.js'

@@ -178,8 +178,8 @@ ngRouteModule.directive('ngView', ngViewFillContentFactory);
  * @description
  * Emitted every time the ngView content is reloaded.
  */
-ngViewFactory.$inject = ['$route', '$anchorScroll', '$animate'];
-function ngViewFactory(   $route,   $anchorScroll,   $animate) {
+ngViewFactory.$inject = ['$route', '$anchorScroll', '$animateViewPort'];
+function ngViewFactory(   $route,   $anchorScroll,   $animateViewPort) {
   return {
     restrict: 'ECA',
     terminal: true,
@@ -188,6 +188,7 @@ function ngViewFactory(   $route,   $anchorScroll,   $animate) {
     link: function(scope, $element, attr, ctrl, $transclude) {
         var currentScope,
             currentElement,
+            previousLayout,
             previousLeaveAnimation,
             autoScrollExp = attr.autoscroll,
             onloadExp = attr.onload || '';
@@ -205,13 +206,14 @@ function ngViewFactory(   $route,   $anchorScroll,   $animate) {
             currentScope.$destroy();
             currentScope = null;
           }
-          if(currentElement) {
-            previousLeaveAnimation = $animate.leave(currentElement);
+          if(previousLayout) {
+            previousLeaveAnimation = previousLayout.leave();
             previousLeaveAnimation.then(function() {
               previousLeaveAnimation = null;
             });
-            currentElement = null;
+            previousLayout = null;
           }
+          currentElement = null;
         }
 
         function update() {
@@ -229,7 +231,8 @@ function ngViewFactory(   $route,   $anchorScroll,   $animate) {
             // function is called before linking the content, which would apply child
             // directives to non existing elements.
             var clone = $transclude(newScope, function(clone) {
-              $animate.enter(clone, null, currentElement || $element).then(function onNgViewEnter () {
+              var layout = previousLayout = $animateViewPort(clone);
+              layout.enter(null, currentElement || $element).then(function onNgViewEnter () {
                 if (angular.isDefined(autoScrollExp)
                   && (!autoScrollExp || scope.$eval(autoScrollExp))) {
                   $anchorScroll();

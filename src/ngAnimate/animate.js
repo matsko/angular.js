@@ -381,19 +381,27 @@ angular.module('ngAnimate', ['ng'])
    * Please visit the {@link ngAnimate `ngAnimate`} module overview page learn more about how to use animations in your application.
    *
    */
-  .directive('ngAnimateChildren', function() {
+  .factory('$$animateChildren', function() {
     var NG_ANIMATE_CHILDREN = '$$ngAnimateChildren';
+    return function(element, value) {
+      return arguments.length > 1
+        ? element.data(NG_ANIMATE_CHILDREN, !!value)
+        : element.data(NG_ANIMATE_CHILDREN);
+    }
+  })
+
+  .directive('ngAnimateChildren', ['$$animateChildren', function($$animateChildren) {
     return function(scope, element, attrs) {
       var val = attrs.ngAnimateChildren;
       if (angular.isString(val) && val.length === 0) { //empty attribute
-        element.data(NG_ANIMATE_CHILDREN, true);
+        $$animateChildren(element, true);
       } else {
         scope.$watch(val, function(value) {
-          element.data(NG_ANIMATE_CHILDREN, !!value);
+          $$animateChildren(element, value);
         });
       }
     };
-  })
+  }])
 
   //this private service is only used within CSS-enabled animations
   //IE8 + IE9 do not support rAF natively, but that is fine since they
@@ -425,7 +433,6 @@ angular.module('ngAnimate', ['ng'])
 
     var ELEMENT_NODE = 1;
     var NG_ANIMATE_STATE = '$$ngAnimateState';
-    var NG_ANIMATE_CHILDREN = '$$ngAnimateChildren';
     var NG_ANIMATE_CLASS_NAME = 'ng-animate';
     var rootAnimateState = {running: true};
 
@@ -451,8 +458,8 @@ angular.module('ngAnimate', ['ng'])
     }
 
     $provide.decorator('$animate',
-        ['$delegate', '$$q', '$injector', '$sniffer', '$rootElement', '$$asyncCallback', '$rootScope', '$document', '$templateRequest',
- function($delegate,   $$q,   $injector,   $sniffer,   $rootElement,   $$asyncCallback,   $rootScope,   $document,   $templateRequest) {
+        ['$delegate', '$$q', '$injector', '$sniffer', '$rootElement', '$$asyncCallback', '$rootScope', '$document', '$templateRequest', '$$animateChildren',
+ function($delegate,   $$q,   $injector,   $sniffer,   $rootElement,   $$asyncCallback,   $rootScope,   $document,   $templateRequest,  $$animateChildren) {
 
       $rootElement.data(NG_ANIMATE_STATE, rootAnimateState);
 
@@ -1536,7 +1543,7 @@ angular.module('ngAnimate', ['ng'])
           //once a flag is found that is strictly false then everything before
           //it will be discarded and all child animations will be restricted
           if (allowChildAnimations !== false) {
-            var animateChildrenFlag = parentElement.data(NG_ANIMATE_CHILDREN);
+            var animateChildrenFlag = $$animateChildren(parentElement);
             if (angular.isDefined(animateChildrenFlag)) {
               allowChildAnimations = animateChildrenFlag;
             }

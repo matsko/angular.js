@@ -330,7 +330,7 @@ module.exports = function(grunt) {
 
   grunt.registerTask('minify', ['bower','clean', 'build', 'minall']);
   grunt.registerTask('webserver', ['connect:devserver']);
-  grunt.registerTask('package', ['bower','clean', 'buildall', 'minall', 'collect-errors', 'docs', 'copy', 'write', 'compress']);
+  grunt.registerTask('package', ['clean', 'buildall', 'minall', 'collect-errors', 'docs', 'copy', 'write']);
   grunt.registerTask('ci-checks', ['ddescribe-iit', 'merge-conflict', 'jshint', 'jscs']);
   grunt.registerTask('default', ['package']);
 };

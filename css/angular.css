@@ -2,6 +2,7 @@
 
 [ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak],
 .ng-cloak, .x-ng-cloak,
+ng-animation, .ng-animation,
 .ng-hide:not(.ng-hide-animate) {
   display: none !important;
 }

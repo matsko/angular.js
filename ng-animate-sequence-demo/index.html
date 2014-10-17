@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html ng-app="MyApp">
+<head>
+<title>My Angular App</title>
+<link href="./animations.xml" />
+<style>
+.ng-pending:not(.ng-animate) { visibility:hidden!important; }
+
+div.ng-enter { opacity:0; transition:1s linear all; }
+div.ng-enter.ng-enter-active { opacity:1; }
+
+div.ng-leave { opacity:1; transition:1s linear all; }
+div.ng-leave.ng-leave-active { opacity:0; background:red; }
+
+.user {
+  display:inline-block;
+  width:20%;
+  margin-right:-4px;
+  height:100px;
+  text-align:center;
+  line-height:100px;
+  font-size:50px;
+  color:white;
+}
+
+div.user { background:red; }
+
+p.ng-enter { opacity:0; position:relative; left:200px; transition:0.2s linear all; }
+p.ng-enter.ng-enter-active { opacity:1; left:0;}
+
+p.ng-leave { opacity:1; transform: translateY(0px); transition:1s linear all; }
+p.ng-leave.ng-leave-active { opacity:0;  transform: translateY(-100px); }
+
+p.user {
+  background:green;
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#/">Home</a>
+  <a href="#/users">Users</a>
+</nav>
+<section ng-view></section>
+
+<script type="text/javascript" src="../build/angular.js"></script>
+<script type="text/javascript" src="../build/angular-animate.js"></script>
+<script type="text/javascript" src="../build/angular-route.js"></script>
+<script type="text/javascript">
+angular.module("MyApp", ['ngRoute', 'ngAnimateLayout'])
+  .config(function($routeProvider) {
+    $routeProvider.when('/', {
+      controller: 'HomeCtrl as home',
+      templateUrl : './home.html?32221'
+    })
+    $routeProvider.when('/users', {
+      controller: 'UsersCtrl as users',
+      templateUrl : './users.html?1x32'
+    })
+  })
+  .controller("HomeCtrl", ["$scope", function($scope) {
+    //...
+  }])
+  .controller("UsersCtrl", ["$scope", function($scope) {
+    //...
+  }])
+  .filter('reverse', function() {
+    return function(nodes) {
+      var elements = [];
+      for(var i=-1,l=nodes.length;++i!==l;elements[i]=nodes[i]);
+      elements.reverse();
+      return elements;
+    }
+  })
+  .filter('reoder', function() {
+    return function(elements) {
+      var indices = [13, 12, 7, 8, 9, 14, 19, 18, 17, 16, 11, 6, 1, 2, 3, 4, 5, 10, 15, 20, 25, 24, 23, 22, 21];
+      var resorted = [];
+      for(var i=0;i<elements.length;i++) {
+        resorted[i] = elements[indices[i]];
+      }
+      return resorted;
+    }
+  })
+
+</script>
+</body>
+</html>
