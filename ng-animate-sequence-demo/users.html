@@ -1,109 +1,16 @@
-<ng-animation order="enter, leave" wait="something">
+<ng-animation>
   <ng-animate-sequence on="enter">
-    <ng-animate selector="*" filter="reoder" stagger="50"></ng-animate>
+    <ng-animate-keep selector="#me"></ng-animate-keep>
+    <ng-animate selector="div" stagger="50"></ng-animate>
   </ng-animate-sequence>
 
   <ng-animate-sequence on="leave">
-    <ng-animate selector=":nth-child(even)" stagger="50" from="startingValue" to="{opacity:1}"></ng-animate>
+    <ng-animate selector=":nth-child(even)" stagger="50"></ng-animate>
     <ng-animate selector=":nth-child(odd)" filter="reverse" stagger="50"></ng-animate>
   </ng-animate-sequence>
 </ng-animation>
 
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
-</div>
-
-<div class="user">
-  User
+  <p id="me">Adipisicing nemo doloribus enim rerum voluptatibus sit maiores earum laudantium, quas modi delectus necessitatibus illum quos odio ab, repellat, molestias iusto blanditiis quia. Voluptatem obcaecati dicta rem enim magnam maxime.</p>
+<div ng-repeat="user in users.entries">
+  <h2>User #{{ user }}</h2>
 </div>

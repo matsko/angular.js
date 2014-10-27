@@ -1,7 +1,6 @@
 'use strict';
 
 ngRouteModule.directive('ngView', ngViewFactory);
-ngRouteModule.directive('ngView', ngViewFillContentFactory);
 
 
 /**
@@ -178,8 +177,8 @@ ngRouteModule.directive('ngView', ngViewFillContentFactory);
  * @description
  * Emitted every time the ngView content is reloaded.
  */
-ngViewFactory.$inject = ['$route', '$anchorScroll', '$animateViewPort'];
-function ngViewFactory(   $route,   $anchorScroll,   $animateViewPort) {
+ngViewFactory.$inject = ['$route', '$anchorScroll', '$animateViewPort', '$animate', '$compile', '$controller', '$rootScope'];
+function ngViewFactory(   $route,   $anchorScroll,   $animateViewPort,   $animate, $compile, $controller, $rootScope) {
   return {
     restrict: 'ECA',
     terminal: true,
@@ -196,7 +195,8 @@ function ngViewFactory(   $route,   $anchorScroll,   $animateViewPort) {
         scope.$on('$routeChangeSuccess', update);
         update();
 
-        function cleanupLastView() {
+        function cleanupLastView(fn) {
+          fn = fn || angular.noop;
           if(previousLeaveAnimation) {
             $animate.cancel(previousLeaveAnimation);
             previousLeaveAnimation = null;
@@ -206,14 +206,18 @@ function ngViewFactory(   $route,   $anchorScroll,   $animateViewPort) {
             currentScope.$destroy();
             currentScope = null;
           }
+
+          currentElement = null;
           if(previousLayout) {
             previousLeaveAnimation = previousLayout.leave();
-            previousLeaveAnimation.then(function() {
+            var layoutPromise = previousLeaveAnimation.then(function() {
               previousLeaveAnimation = null;
             });
+            previousLayout.async ? fn() : layoutPromise.then(fn);
             previousLayout = null;
+          } else {
+            fn();
           }
-          currentElement = null;
         }
 
         function update() {
@@ -231,14 +235,34 @@ function ngViewFactory(   $route,   $anchorScroll,   $animateViewPort) {
             // function is called before linking the content, which would apply child
             // directives to non existing elements.
             var clone = $transclude(newScope, function(clone) {
-              var layout = previousLayout = $animateViewPort(clone);
-              layout.enter(null, currentElement || $element).then(function onNgViewEnter () {
-                if (angular.isDefined(autoScrollExp)
-                  && (!autoScrollExp || scope.$eval(autoScrollExp))) {
-                  $anchorScroll();
+              cleanupLastView(function() {
+                clone.html(template);
+
+                var link = $compile(clone.contents());
+
+                if (current.controller) {
+                  locals.$scope = scope;
+                  var controller = $controller(current.controller, locals);
+                  if (current.controllerAs) {
+                    scope[current.controllerAs] = controller;
+                  }
+                  clone.data('$ngControllerController', controller);
+                  clone.children().data('$ngControllerController', controller);
                 }
+
+                link(scope);
+
+                $rootScope.$$postDigest(function() {
+                  var layout = previousLayout = $animateViewPort(clone, scope);
+                  layout.enter(null, $element).then(function onNgViewEnter () {
+                    if (angular.isDefined(autoScrollExp)
+                      && (!autoScrollExp || scope.$eval(autoScrollExp))) {
+                      $anchorScroll();
+                    }
+                  });
+                });
+                !$rootScope.$$phase && $rootScope.$digest();
               });
-              cleanupLastView();
             });
 
             currentElement = clone;
@@ -249,39 +273,6 @@ function ngViewFactory(   $route,   $anchorScroll,   $animateViewPort) {
             cleanupLastView();
           }
         }
-    }
-  };
-}
-
-// This directive is called during the $transclude call of the first `ngView` directive.
-// It will replace and compile the content of the element with the loaded template.
-// We need this directive so that the element content is already filled when
-// the link function of another directive on the same element as ngView
-// is called.
-ngViewFillContentFactory.$inject = ['$compile', '$controller', '$route'];
-function ngViewFillContentFactory($compile, $controller, $route) {
-  return {
-    restrict: 'ECA',
-    priority: -400,
-    link: function(scope, $element) {
-      var current = $route.current,
-          locals = current.locals;
-
-      $element.html(locals.$template);
-
-      var link = $compile($element.contents());
-
-      if (current.controller) {
-        locals.$scope = scope;
-        var controller = $controller(current.controller, locals);
-        if (current.controllerAs) {
-          scope[current.controllerAs] = controller;
-        }
-        $element.data('$ngControllerController', controller);
-        $element.children().data('$ngControllerController', controller);
-      }
-
-      link(scope);
     }
   };
 }

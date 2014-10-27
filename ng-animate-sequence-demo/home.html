@@ -1,13 +1,20 @@
-<script type="text/ng-sequence">
-  <animate-template on="enter">
-    <animate selector="*" stagger="20"></animate>
-  </animate-template>
+<ng-animation>
+  <ng-animate-sequence on="enter">
+    <ng-animate selector="*" stagger="50"></ng-animate>
+  </ng-animate-sequence>
 
-  <animate-template on="leave">
-    <animate selector="*" stagger="20"></animate>
-  </animate-template>
-</script>
+  <ng-animate-sequence on="leave">
+    <ng-animate-keep selector="#me"></ng-animate-keep>
+    <ng-animate selector="*" filter="reverse" stagger="500"></ng-animate>
+  </ng-animate-sequence>
+</ng-animation>
 
+<p>.....</p>
+<p>.....</p>
+<p>.....</p>
+<p>.....</p>
+<p id="me">Adipisicing nemo doloribus enim rerum voluptatibus sit maiores earum laudantium, quas modi delectus necessitatibus illum quos odio ab, repellat, molestias iusto blanditiis quia. Voluptatem obcaecati dicta rem enim magnam maxime.</p>
+</p>
 <p class="user">
   User
 </p>

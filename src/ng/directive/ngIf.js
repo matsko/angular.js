@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * @ngdoc directive
  * @name ngIf
@@ -76,7 +74,7 @@
     </file>
   </example>
  */
-var ngIfDirective = ['$animate', function($animate) {
+var ngIfDirective = ['$animate', '$animateViewPort', '$rootScope', function($animate, $animateViewPort, $rootScope) {
   return {
     multiElement: true,
     transclude: 'element',
@@ -85,7 +83,7 @@ var ngIfDirective = ['$animate', function($animate) {
     restrict: 'A',
     $$tlb: true,
     link: function ($scope, $element, $attr, ctrl, $transclude) {
-        var block, childScope, previousElements;
+        var block, childScope, previousElements, previousLayout;
         $scope.$watch($attr.ngIf, function ngIfWatchAction(value) {
 
           if (value) {
@@ -99,7 +97,10 @@ var ngIfDirective = ['$animate', function($animate) {
                 block = {
                   clone: clone
                 };
-                $animate.enter(clone, $element.parent(), $element);
+                $rootScope.$$postDigest(function() {
+                  var layout = previousLayout = $animateViewPort(clone, newScope);
+                  layout.enter($element.parent(), $element);
+                });
               });
             }
           } else {
@@ -112,11 +113,14 @@ var ngIfDirective = ['$animate', function($animate) {
               childScope = null;
             }
             if(block) {
-              previousElements = getBlockNodes(block.clone);
-              $animate.leave(previousElements).then(function() {
-                previousElements = null;
-              });
-              block = null;
+              if (previousLayout) {
+                layout.enter($element.parent(), $element);
+                previousElements = getBlockNodes(block.clone);
+                layout.leave().then(function() {
+                  previousElements = null;
+                });
+                block = null;
+              }
             }
           }
         });

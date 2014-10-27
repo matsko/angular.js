@@ -10,3 +10,7 @@ ng-animation, .ng-animation,
 ng\:form {
   display: block;
 }
+
+.ng-animate-queued:not(.ng-animate) {
+  visibility:hidden!important;
+}
