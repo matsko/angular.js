@@ -1,0 +1,7 @@
+
+  1. enter, leave, move, addClass, removeClass, setClass
+  2. only allow animation if there is
+    2.a no sequence
+    2.b sequence pending
+      the element is marked with a data object
+      which contains the latest promise

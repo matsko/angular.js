@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html ng-app="MyApp">
+<head>
+<title>My Angular App</title>
+<style>
+.fade.ng-leave {
+  transition:1s linear all;
+  opacity:1;
+}
+.fade.ng-leave.ng-leave-active {
+  opacity:0;
+}
+.fade.ng-enter {
+  transition:1s linear all;
+  opacity:0;
+}
+.fade.ng-enter.ng-enter-active {
+  opacity:1;
+}
+.ng-animate-queued:not(.ng-animate) {
+  visibility:hidden;
+}
+.big-red {
+  background:red;
+  padding:10px;
+  color:white;
+}
+
+.box {
+  box-sizing:border-box;
+  width:50px;
+  height:50px;
+  display:inline-block;
+  margin-left:10px;
+  margin-right:10px;
+  border:2px solid black;
+}
+.one { background:red; }
+.two { background:blue; }
+.box.ng-animate-queued:not(.ng-animate) { display:none; }
+</style>
+</head>
+<body ng-init="status=1">
+
+<ng-sequence name="fadeOut">
+  <ng-step selector="p" stagger="500" action="leave" temp-classes="fade"></ng-step>
+  <ng-step selector="div" stagger="100" action="leave" temp-classes="fade"></ng-step>
+</ng-sequence>
+
+<ng-sequence name="morph">
+  <ng-step selector=".one" stagger="100" temp-classes="fade"></ng-step>
+  <ng-step selector=".two" stagger="100" temp-classes="fade"></ng-step>
+  <ng-step selector=".repeat" stagger="100" temp-classes="fade"></ng-step>
+</ng-sequence>
+
+<button ng-click="start=!start">Start Animation</button>
+<div class="animation-container" ng-sequence-use="{fadeOut: start}">
+  <div>cool</div>
+  <p>value</p>
+  <p>value</p>
+  <p>value</p>
+  <p>value</p>
+  <p ng-if="!start" class="big-red">value</p>
+  <p>value</p>
+</div>
+
+<hr />
+
+<button ng-click="status=2">Morph Animation</button>
+<div class="repeat-container" ng-sequence-use="{morph: status==2}">
+  <div class="box one" ng-if="status==1">one</div>
+  <div class="box one" ng-if="status==1">one</div>
+  <div class="box one" ng-if="status==1">one</div>
+  <div class="box one" ng-if="status==1">one</div>
+
+  <div class="box two" ng-if="status==2">two</div>
+  <div class="box two" ng-if="status==2">two</div>
+  <div class="box two" ng-if="status==2">two</div>
+  <div class="box two" ng-if="status==2">two</div>
+
+  <div ng-repeat="item in [1,2,3,4,5,6,7]" ng-if="status==2" class="repeat">
+    {{ item }}
+  </div>
+</div>
+
+<script type="text/javascript" src="../build/angular.js"></script>
+<script type="text/javascript" src="../build/angular-sequence.js"></script>
+<script type="text/javascript" src="../build/angular-animate.js"></script>
+<script type="text/javascript">
+angular.module("MyApp", ['ngSequence', 'ngAnimate'])
+</script>
+</body>
+</html>

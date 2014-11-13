@@ -1,0 +1,21 @@
+<ng-sequence name="slideSequence" driver="mySequencer">
+  <ng-step action="checkSlide()">...</ng-step>
+  <ng-step selector=".current-slide" action="removeSlide">...</ng-step>
+  <ng-step selector=".next-slide" action="addSlide">...</ng-step>
+</ng-sequence>
+
+<div ng-repeat="question in questions">
+  <input ng-model="question" />
+  <input ng-model="answer" />
+  <button ng-click="slide=slide+1">Next</button>
+</div>
+
+/*
+registerRoute({
+  templateUrl: '...',
+  controller: '...',
+  beforeLeave: function() {
+
+  }
+});
+*/
