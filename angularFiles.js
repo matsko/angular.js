@@ -81,6 +81,9 @@ var angularFiles = {
     'ngAnimate': [
       'src/ngAnimate/animate.js'
     ],
+    'ngSequence': [
+      'src/ngSequence/sequence.js'
+    ],
     'ngCookies': [
       'src/ngCookies/cookies.js'
     ],
@@ -202,6 +205,7 @@ var angularFiles = {
 
 angularFiles['angularSrcModules'] = [].concat(
   angularFiles['angularModules']['ngAnimate'],
+  angularFiles['angularModules']['ngSequence'],
   angularFiles['angularModules']['ngMessages'],
   angularFiles['angularModules']['ngCookies'],
   angularFiles['angularModules']['ngResource'],

@@ -132,6 +132,9 @@ module.exports = function(grunt) {
       ngAnimate: {
         files: { src: 'src/ngAnimate/**/*.js' },
       },
+      ngSequence: {
+        files: { src: 'src/ngSequence/**/*.js' },
+      },
       ngCookies: {
         files: { src: 'src/ngCookies/**/*.js' },
       },
@@ -219,6 +222,10 @@ module.exports = function(grunt) {
       animate: {
         dest: 'build/angular-animate.js',
         src: util.wrap(files['angularModules']['ngAnimate'], 'module')
+      },
+      sequence: {
+        dest: 'build/angular-sequence.js',
+        src: util.wrap(files['angularModules']['ngSequence'], 'module')
       },
       route: {
         dest: 'build/angular-route.js',
