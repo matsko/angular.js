@@ -182,7 +182,7 @@ describe('q', function() {
 
 
   beforeEach(function() {
-    q = qFactory(mockNextTick.nextTick, noop),
+    q = qFactory(noop, mockNextTick.nextTick, noop),
     defer = q.defer;
     deferred =  defer();
     promise = deferred.promise;
@@ -1965,7 +1965,7 @@ describe('q', function() {
 
 
     beforeEach(function() {
-      q = qFactory(mockNextTick.nextTick, mockExceptionLogger.logger),
+      q = qFactory(noop, mockNextTick.nextTick, mockExceptionLogger.logger),
       defer = q.defer;
       deferred =  defer();
       promise = deferred.promise;
@@ -2079,7 +2079,7 @@ describe('q', function() {
       errorSpy = jasmine.createSpy('errorSpy');
 
 
-      q = qFactory(mockNextTick.nextTick, exceptionExceptionSpy);
+      q = qFactory(noop, mockNextTick.nextTick, exceptionExceptionSpy);
       deferred = q.defer();
     });
 
@@ -2107,4 +2107,65 @@ describe('q', function() {
       expect(errorSpy).toHaveBeenCalled();
     });
   });
+
+});
+
+describe('$$qAnimate', function() {
+
+  it('should only allow itself to resolve after one or more rAFs has occurred',
+    inject(function($$qAnimate, $$rAF) {
+
+    var signature = 'A';
+    var defer = $$qAnimate.defer();
+    defer.resolve();
+
+    defer.promise.then(function() {
+      signature += 'B';
+    });
+    signature += 'C';
+
+    expect(signature).toBe('AC');
+    $$rAF.flush();
+
+    expect(signature).toBe('ACB');
+  }));
+
+  it('should synchronously resolve itself if a rAF has already occurred',
+    inject(function($$qAnimate, $$rAF) {
+
+    var signature = 'A';
+    var defer = $$qAnimate.defer();
+    defer.promise.then(function() {
+      signature += 'B';
+    });
+    defer.resolve();
+
+    expect(signature).toBe('A');
+
+    $$rAF.flush();
+    signature += 'C';
+    expect(signature).toBe('ABC');
+  }));
+
+  it('should synchronously resolve itself all subsequent promises if a rAF has already occurred',
+    inject(function($$qAnimate, $$rAF) {
+
+    var signature = '';
+    var defer = $$qAnimate.defer();
+    var chain = defer.promise.then(function() {
+      signature += 'A';
+    });
+    chain = chain.then(function() {
+      signature += 'B';
+    });
+    chain = chain.then(function() {
+      signature += 'C';
+    });
+    defer.resolve();
+
+    expect(signature).toBe('');
+
+    $$rAF.flush();
+    expect(signature).toBe('ABC');
+  }));
 });
