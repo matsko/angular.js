@@ -653,7 +653,7 @@ describe('ngView and transcludes', function() {
   });
 });
 
-describe('ngView animations', function() {
+xdescribe('ngView animations', function() {
   var body, element, $rootElement;
 
   beforeEach(module('ngRoute'));

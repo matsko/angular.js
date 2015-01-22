@@ -1371,7 +1371,7 @@ describe('ngRepeat and transcludes', function() {
   });
 });
 
-describe('ngRepeat animations', function() {
+xdescribe('ngRepeat animations', function() {
   var body, element, $rootElement;
 
   function html(content) {

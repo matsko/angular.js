@@ -1,6 +1,6 @@
 'use strict';
 
-describe("$animate", function() {
+ddescribe("$animate", function() {
 
   describe("without animation", function() {
     var element, $rootElement;

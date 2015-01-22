@@ -924,7 +924,7 @@ describe('form', function() {
   });
 });
 
-describe('form animations', function() {
+xdescribe('form animations', function() {
   beforeEach(module('ngAnimateMock'));
 
   function assertValidAnimation(animation, event, classNameAdded, classNameRemoved) {

@@ -301,7 +301,7 @@ describe('ngSwitch', function() {
   }));
 });
 
-describe('ngSwitch animation', function() {
+xdescribe('ngSwitch animation', function() {
   var body, element, $rootElement;
 
   function html(content) {

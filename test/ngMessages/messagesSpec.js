@@ -176,7 +176,7 @@ describe('ngMessages', function() {
     expect(element.hasClass('ng-inactive')).toBe(false);
   }));
 
-  it('should render animations when the active/inactive classes are added/removed', function() {
+  xit('should render animations when the active/inactive classes are added/removed', function() {
     module('ngAnimate');
     module('ngAnimateMock');
     inject(function($rootScope, $compile, $animate) {

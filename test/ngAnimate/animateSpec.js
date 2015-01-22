@@ -1,6 +1,6 @@
 'use strict';
 
-describe("ngAnimate", function() {
+xdescribe("ngAnimate", function() {
   var $originalAnimate;
   beforeEach(module(function($provide) {
     $provide.decorator('$animate', function($delegate) {
