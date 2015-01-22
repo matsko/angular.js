@@ -5,13 +5,19 @@ ddescribe("animations", function() {
     dealoc(element);
   });
 
+  function packageResult(value, done) {
+    return { value : value, done : done };
+  }
+
   describe("drivers", function() {
     it("should allow custom drivers to be registered", function() {
       var spy = jasmine.createSpy();
       module(function($animateProvider, $provide) {
         $provide.value('customDriver', function(element, method) {
           spy(element, method);
-          return angular.noop;
+          return function() {
+            return packageResult(true, true);
+          };
         });
         $animateProvider.drivers.push('customDriver');
       });
@@ -46,9 +52,8 @@ ddescribe("animations", function() {
 
         var calls = 0;
         driverFn = function(index, data) {
-          if (++calls < 5) {
-            return true;
-          }
+          var done = ++calls >= 5;
+          return packageResult(true, done);
         };
 
         var resolved, rejected;
@@ -70,7 +75,7 @@ ddescribe("animations", function() {
         var calls = 0;
         driverFn = function(index, data) {
           calls++;
-          return false;
+          return packageResult(false, true);
         };
 
         var resolved, rejected;
@@ -86,35 +91,13 @@ ddescribe("animations", function() {
         expect(rejected).toBe(true);
       }));
 
-      it("should synchronously stop and then resolve if nothing is returned",
-        inject(function($animateSequence, $$rAF) {
-
-        var calls = 0;
-        driverFn = function(index, data) {
-          calls++;
-        };
-
-        var resolved, rejected;
-        $animateSequence(element, 'some-method').then(
-          function() { resolved = true; },
-          function() { rejected = true; }
-        );
-
-        $$rAF.flush();
-
-        expect(calls).toBe(1);
-        expect(resolved).toBe(true);
-        expect(rejected).not.toBe(true);
-      }));
-
       it("should asynchronously resolve if a promise is returned",
         inject(function($animateSequence, $rootScope, $q, $$rAF) {
 
         var calls = 0;
         var defer = $q.defer();
         driverFn = function(index, data) {
-          calls++;
-          return calls < 2 ? defer.promise : null;
+          return packageResult(defer.promise, ++calls >= 2);
         };
 
         var resolved, rejected;
@@ -132,14 +115,14 @@ ddescribe("animations", function() {
         expect(rejected).not.toBe(true);
       }));
 
-      it("should asynchronously reject and close if a promise is returned",
+      it("should asynchronously reject and close if a promise is returned and then rejected",
         inject(function($animateSequence, $rootScope, $q, $$rAF) {
 
         var calls = 0;
         var defer = $q.defer();
         driverFn = function(index, data) {
           calls++;
-          return defer.promise;
+          return packageResult(defer.promise);
         };
 
         var resolved, rejected;
@@ -165,12 +148,14 @@ ddescribe("animations", function() {
         $provide.value('first', function() {
           return function(done, index, data) {
             capturedDriver = 'first';
+            return packageResult(true, true);
           };
         });
 
         $provide.value('second', function() {
           return function(index) {
             capturedDriver = 'second';
+            return packageResult(true, true);
           };
         });
 

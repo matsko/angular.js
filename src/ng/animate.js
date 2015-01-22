@@ -1,3 +1,7 @@
+'use strict';
+
+var $animateMinErr = minErr('$animate');
+
 function $NoopAnimationDriverProvider() {
   this.$get = function() {
     return angular.noop;
@@ -17,7 +21,7 @@ function $AnimateRunnerProvider() {
   }];
 }
 
-$AnimateProvider = ['$provide', function($provide) {
+var $AnimateProvider = ['$provide', function($provide) {
   this.drivers = [];
   this.drivers.push('$noopAnimationDriver');
 
@@ -84,7 +88,7 @@ function $AnimateQueueProvider() {
   }];
 }
 
-$AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
+var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
   var NG_ANIMATE_CLASSNAME = 'ng-animate';
 
   this.$get = ['$$qAnimate', '$injector', '$animateRunner',
@@ -146,22 +150,32 @@ $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
       }
 
       function next(formerData) {
-        var val = driver.next(cursor, formerData);
-        if (val === false || val === true) {
-          //synchronous animation flow
-          tick(val);
-        } else if (isPromiseLike(val)) {
+        var result = driver.next(cursor, formerData);
+        // FIXME: $animateSequence should throw an error if nothing
+        // is retruned from the animation loop
+        if (!result || !isDefined(result.value)) {
+          throw $animateMinErr('etyanires',
+            "Animation driver.next() must respond with an object containing value and done members");
+        }
+
+        if (!result || result.done) {
+          // if nothing is returned at all then we assume the animation failed
+          // otherwise, so long as the value is not false then we're fine to assume
+          // that the animation was successful
+          close(result && result.value !== false);
+          return;
+        }
+
+        var value = result.value;
+        if (isPromiseLike(value)) {
           // this will force a wait for one reflow which in turn
           // ensures that the animation step is asynchronous. If
           // a promise is not returned then we rely on user calling
           // the callback function to end the animation.
-          val.then(tick, function() { tick(false); });
+          value.then(tick, function() { tick(false); });
         } else {
-          close(true);
-        }
-
-        function isPromiseLike(p) {
-          return p && p.then;
+          //synchronous animation flow
+          tick(value);
         }
 
         function tick(data) {
