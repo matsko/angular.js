@@ -1,57 +1,27 @@
-'use strict';
+function $NoopAnimationDriverProvider() {
+  this.$get = function() {
+    return angular.noop;
+  };
+}
 
-var $animateMinErr = minErr('$animate');
+function $AnimateRunnerProvider() {
+  this.$get = [function() {
+    return function(promise) {
+      return {
+        progress : angular.noop,
+        then : function() {
+          return promise.then.apply(promise, arguments);
+        }
+      };
+    };
+  }];
+}
 
-/**
- * @ngdoc provider
- * @name $animateProvider
- *
- * @description
- * Default implementation of $animate that doesn't perform any animations, instead just
- * synchronously performs DOM
- * updates and calls done() callbacks.
- *
- * In order to enable animations the ngAnimate module has to be loaded.
- *
- * To see the functional implementation check out src/ngAnimate/animate.js
- */
-var $AnimateProvider = ['$provide', function($provide) {
+$AnimateProvider = ['$provide', function($provide) {
+  this.drivers = [];
+  this.drivers.push('$noopAnimationDriver');
 
-
-  this.$$selectors = {};
-
-
-  /**
-   * @ngdoc method
-   * @name $animateProvider#register
-   *
-   * @description
-   * Registers a new injectable animation factory function. The factory function produces the
-   * animation object which contains callback functions for each event that is expected to be
-   * animated.
-   *
-   *   * `eventFn`: `function(Element, doneFunction)` The element to animate, the `doneFunction`
-   *   must be called once the element animation is complete. If a function is returned then the
-   *   animation service will use this function to cancel the animation whenever a cancel event is
-   *   triggered.
-   *
-   *
-   * ```js
-   *   return {
-     *     eventFn : function(element, done) {
-     *       //code to run the animation
-     *       //once complete, then run done()
-     *       return function cancellationFunction() {
-     *         //code to cancel the animation
-     *       }
-     *     }
-     *   }
-   * ```
-   *
-   * @param {string} name The name of the animation.
-   * @param {Function} factory The factory function that will be executed to return the animation
-   *                           object.
-   */
+  this.$$selectors = [];
   this.register = function(name, factory) {
     var key = name + '-animation';
     if (name && name.charAt(0) != '.') throw $animateMinErr('notcsel',
@@ -60,312 +30,164 @@ var $AnimateProvider = ['$provide', function($provide) {
     $provide.factory(key, factory);
   };
 
-  /**
-   * @ngdoc method
-   * @name $animateProvider#classNameFilter
-   *
-   * @description
-   * Sets and/or returns the CSS class regular expression that is checked when performing
-   * an animation. Upon bootstrap the classNameFilter value is not set at all and will
-   * therefore enable $animate to attempt to perform an animation on any element.
-   * When setting the classNameFilter value, animations will only be performed on elements
-   * that successfully match the filter expression. This in turn can boost performance
-   * for low-powered devices as well as applications containing a lot of structural operations.
-   * @param {RegExp=} expression The className expression which will be checked against all animations
-   * @return {RegExp} The current CSS className expression value. If null then there is no expression value
-   */
-  this.classNameFilter = function(expression) {
-    if (arguments.length === 1) {
-      this.$$classNameFilter = (expression instanceof RegExp) ? expression : null;
-    }
-    return this.$$classNameFilter;
-  };
+  this.$get = ['$animateSequence', '$rootScope', '$$q', '$animateQueue',
+       function($animateSequence,   $rootScope,   $$q,   $animateQueue) {
+    return {
+      enter : function(element, parent, after, options) {
+        return $animateQueue.push(element, function() {
+          return $animateSequence(element, 'enter', 'ng-enter', null, options, insert);
+        });
 
-  this.$get = ['$$q', '$$asyncCallback', '$rootScope', function($$q, $$asyncCallback, $rootScope) {
+        function insert() {
+          after ? after.after(element) : parent.append(element);
+        }
+      },
+      addClass : function(element, className, options) {
+        return $animateQueue.push(element, function() {
+          return $animateSequence(element, 'addClass', className, null, options, addClass);
+        });
 
-    var currentDefer;
+        function addClass() {
+          element.addClass(className);
+        }
+      },
+      removeClass : function(element, className, options) {
+        return $animateQueue.push(element, function() {
+          return $animateSequence(element, 'removeClass', null, className, options, removeClass);
+        });
 
-    function runAnimationPostDigest(fn) {
-      var cancelFn, defer = $$q.defer();
-      defer.promise.$$cancelFn = function ngAnimateMaybeCancel() {
-        cancelFn && cancelFn();
-      };
+        function removeClass() {
+          element.removeClass(className);
+        }
+      }
+    };
+  }];
+}];
 
-      $rootScope.$$postDigest(function ngAnimatePostDigest() {
-        cancelFn = fn(function ngAnimateNotifyComplete() {
+function $AnimateQueueProvider() {
+  this.$get = ['$$q', '$rootScope', function($$q, $rootScope) {
+    return {
+      push : function(element, fn) {
+        return wrapPostDigest(fn);
+      }
+    };
+
+    function wrapPostDigest(fn) {
+      var defer = $$q.defer();
+      $rootScope.$$postDigest(function() {
+        fn().then(function() {
           defer.resolve();
         });
       });
-
       return defer.promise;
     }
+  }];
+}
 
-    function resolveElementClasses(element, classes) {
-      var toAdd = [], toRemove = [];
+$AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
+  var NG_ANIMATE_CLASSNAME = 'ng-animate';
 
-      var hasClasses = createMap();
-      forEach((element.attr('class') || '').split(/\s+/), function(className) {
-        hasClasses[className] = true;
-      });
+  this.$get = ['$$qAnimate', '$injector', '$animateRunner',
+       function($$qAnimate,   $injector,   $animateRunner) {
 
-      forEach(classes, function(status, className) {
-        var hasClass = hasClasses[className];
+    return function(element, method, add, remove, options, domOperation) {
+      var _domOperation = domOperation || angular.noop;
+      var domOperationCalled = false;
+      domOperation = function() {
+        _domOperation();
+        domOperationCalled = true;
+      }
 
-        // If the most recent class manipulation (via $animate) was to remove the class, and the
-        // element currently has the class, the class is scheduled for removal. Otherwise, if
-        // the most recent class manipulation (via $animate) was to add the class, and the
-        // element does not currently have the class, the class is scheduled to be added.
-        if (status === false && hasClass) {
-          toRemove.push(className);
-        } else if (status === true && !hasClass) {
-          toAdd.push(className);
+      var className = add || remove || '';
+      var classes = resolveElementClasses(element, className);
+
+      var driver = getDriver(element, method, classes, add, options, domOperation);
+      var cursor = 0;
+
+      var defer = $$qAnimate.defer();
+      var runner = $animateRunner(defer.promise);
+
+      start();
+      return runner;
+
+      function resolveElementClasses(element, extraClasses) {
+        var classes = (element.attr('class') || '').split(' ');
+        if (extraClasses) {
+          var tokens = angular.isArray(extraClasses)
+              ? extraClasses
+              : extraClasses.split(/[\ ,]/);
+          classes = classes.concat(tokens);
         }
-      });
-
-      return (toAdd.length + toRemove.length) > 0 &&
-        [toAdd.length ? toAdd : null, toRemove.length ? toRemove : null];
-    }
-
-    function cachedClassManipulation(cache, classes, op) {
-      for (var i=0, ii = classes.length; i < ii; ++i) {
-        var className = classes[i];
-        cache[className] = op;
+        return classes;
       }
-    }
 
-    function asyncPromise() {
-      // only serve one instance of a promise in order to save CPU cycles
-      if (!currentDefer) {
-        currentDefer = $$q.defer();
-        $$asyncCallback(function() {
-          currentDefer.resolve();
-          currentDefer = null;
-        });
+      function getDriver(element, method, classes, add, remove, options) {
+        var drivers = $animateProvider.drivers;
+
+        // we loop in reverse order since the more general drivers (like CSS and JS)
+        // may attempt more elements, but custom drivers has more requirements.
+        for (var i = drivers.length - 1; i >= 0; i--) {
+          var driverName = drivers[i--];
+          if (!$injector.has(driverName)) continue;
+
+          var factory = $injector.get(driverName);
+          var driver = factory(element, method, classes, add, remove, options, domOperation);
+          if (driver) {
+            return wrapDriver(driver);
+          }
+        }
       }
-      return currentDefer.promise;
-    }
 
-    function applyStyles(element, options) {
-      if (angular.isObject(options)) {
-        var styles = extend(options.from || {}, options.to || {});
-        element.css(styles);
+      function wrapDriver(driver) {
+        if (angular.isFunction(driver)) {
+          driver = { next: driver };
+        }
+        return driver;
       }
-    }
 
-    /**
-     *
-     * @ngdoc service
-     * @name $animate
-     * @description The $animate service provides rudimentary DOM manipulation functions to
-     * insert, remove and move elements within the DOM, as well as adding and removing classes.
-     * This service is the core service used by the ngAnimate $animator service which provides
-     * high-level animation hooks for CSS and JavaScript.
-     *
-     * $animate is available in the AngularJS core, however, the ngAnimate module must be included
-     * to enable full out animation support. Otherwise, $animate will only perform simple DOM
-     * manipulation operations.
-     *
-     * To learn more about enabling animation support, click here to visit the {@link ngAnimate
-     * ngAnimate module page} as well as the {@link ngAnimate.$animate ngAnimate $animate service
-     * page}.
-     */
-    return {
-      animate: function(element, from, to) {
-        applyStyles(element, { from: from, to: to });
-        return asyncPromise();
-      },
-
-      /**
-       *
-       * @ngdoc method
-       * @name $animate#enter
-       * @kind function
-       * @description Inserts the element into the DOM either after the `after` element or
-       * as the first child within the `parent` element. When the function is called a promise
-       * is returned that will be resolved at a later time.
-       * @param {DOMElement} element the element which will be inserted into the DOM
-       * @param {DOMElement} parent the parent element which will append the element as
-       *   a child (if the after element is not present)
-       * @param {DOMElement} after the sibling element which will append the element
-       *   after itself
-       * @param {object=} options an optional collection of styles that will be applied to the element.
-       * @return {Promise} the animation callback promise
-       */
-      enter: function(element, parent, after, options) {
-        applyStyles(element, options);
-        after ? after.after(element)
-              : parent.prepend(element);
-        return asyncPromise();
-      },
-
-      /**
-       *
-       * @ngdoc method
-       * @name $animate#leave
-       * @kind function
-       * @description Removes the element from the DOM. When the function is called a promise
-       * is returned that will be resolved at a later time.
-       * @param {DOMElement} element the element which will be removed from the DOM
-       * @param {object=} options an optional collection of options that will be applied to the element.
-       * @return {Promise} the animation callback promise
-       */
-      leave: function(element, options) {
-        element.remove();
-        return asyncPromise();
-      },
-
-      /**
-       *
-       * @ngdoc method
-       * @name $animate#move
-       * @kind function
-       * @description Moves the position of the provided element within the DOM to be placed
-       * either after the `after` element or inside of the `parent` element. When the function
-       * is called a promise is returned that will be resolved at a later time.
-       *
-       * @param {DOMElement} element the element which will be moved around within the
-       *   DOM
-       * @param {DOMElement} parent the parent element where the element will be
-       *   inserted into (if the after element is not present)
-       * @param {DOMElement} after the sibling element where the element will be
-       *   positioned next to
-       * @param {object=} options an optional collection of options that will be applied to the element.
-       * @return {Promise} the animation callback promise
-       */
-      move: function(element, parent, after, options) {
-        // Do not remove element before insert. Removing will cause data associated with the
-        // element to be dropped. Insert will implicitly do the remove.
-        return this.enter(element, parent, after, options);
-      },
-
-      /**
-       *
-       * @ngdoc method
-       * @name $animate#addClass
-       * @kind function
-       * @description Adds the provided className CSS class value to the provided element.
-       * When the function is called a promise is returned that will be resolved at a later time.
-       * @param {DOMElement} element the element which will have the className value
-       *   added to it
-       * @param {string} className the CSS class which will be added to the element
-       * @param {object=} options an optional collection of options that will be applied to the element.
-       * @return {Promise} the animation callback promise
-       */
-      addClass: function(element, className, options) {
-        return this.setClass(element, className, [], options);
-      },
-
-      $$addClassImmediately: function(element, className, options) {
-        element = jqLite(element);
-        className = !isString(className)
-                        ? (isArray(className) ? className.join(' ') : '')
-                        : className;
-        forEach(element, function(element) {
-          jqLiteAddClass(element, className);
-        });
-        applyStyles(element, options);
-        return asyncPromise();
-      },
-
-      /**
-       *
-       * @ngdoc method
-       * @name $animate#removeClass
-       * @kind function
-       * @description Removes the provided className CSS class value from the provided element.
-       * When the function is called a promise is returned that will be resolved at a later time.
-       * @param {DOMElement} element the element which will have the className value
-       *   removed from it
-       * @param {string} className the CSS class which will be removed from the element
-       * @param {object=} options an optional collection of options that will be applied to the element.
-       * @return {Promise} the animation callback promise
-       */
-      removeClass: function(element, className, options) {
-        return this.setClass(element, [], className, options);
-      },
-
-      $$removeClassImmediately: function(element, className, options) {
-        element = jqLite(element);
-        className = !isString(className)
-                        ? (isArray(className) ? className.join(' ') : '')
-                        : className;
-        forEach(element, function(element) {
-          jqLiteRemoveClass(element, className);
-        });
-        applyStyles(element, options);
-        return asyncPromise();
-      },
-
-      /**
-       *
-       * @ngdoc method
-       * @name $animate#setClass
-       * @kind function
-       * @description Adds and/or removes the given CSS classes to and from the element.
-       * When the function is called a promise is returned that will be resolved at a later time.
-       * @param {DOMElement} element the element which will have its CSS classes changed
-       *   removed from it
-       * @param {string} add the CSS classes which will be added to the element
-       * @param {string} remove the CSS class which will be removed from the element
-       * @param {object=} options an optional collection of options that will be applied to the element.
-       * @return {Promise} the animation callback promise
-       */
-      setClass: function(element, add, remove, options) {
-        var self = this;
-        var STORAGE_KEY = '$$animateClasses';
-        var createdCache = false;
-        element = jqLite(element);
-
-        var cache = element.data(STORAGE_KEY);
-        if (!cache) {
-          cache = {
-            classes: {},
-            options: options
-          };
-          createdCache = true;
-        } else if (options && cache.options) {
-          cache.options = angular.extend(cache.options || {}, options);
+      function next(formerData) {
+        var val = driver.next(cursor, formerData);
+        if (val === false || val === true) {
+          //synchronous animation flow
+          tick(val);
+        } else if (isPromiseLike(val)) {
+          // this will force a wait for one reflow which in turn
+          // ensures that the animation step is asynchronous. If
+          // a promise is not returned then we rely on user calling
+          // the callback function to end the animation.
+          val.then(tick, function() { tick(false); });
+        } else {
+          close(true);
         }
 
-        var classes = cache.classes;
-
-        add = isArray(add) ? add : add.split(' ');
-        remove = isArray(remove) ? remove : remove.split(' ');
-        cachedClassManipulation(classes, add, true);
-        cachedClassManipulation(classes, remove, false);
-
-        if (createdCache) {
-          cache.promise = runAnimationPostDigest(function(done) {
-            var cache = element.data(STORAGE_KEY);
-            element.removeData(STORAGE_KEY);
-
-            // in the event that the element is removed before postDigest
-            // is run then the cache will be undefined and there will be
-            // no need anymore to add or remove and of the element classes
-            if (cache) {
-              var classes = resolveElementClasses(element, cache.classes);
-              if (classes) {
-                self.$$setClassImmediately(element, classes[0], classes[1], cache.options);
-              }
-            }
-
-            done();
-          });
-          element.data(STORAGE_KEY, cache);
+        function isPromiseLike(p) {
+          return p && p.then;
         }
 
-        return cache.promise;
-      },
+        function tick(data) {
+          if (data === false) {
+            close(false);
+            return;
+          }
 
-      $$setClassImmediately: function(element, add, remove, options) {
-        add && this.$$addClassImmediately(element, add);
-        remove && this.$$removeClassImmediately(element, remove);
-        applyStyles(element, options);
-        return asyncPromise();
-      },
+          cursor++;
+          runner.progress(data);
+          next(data);
+        }
+      }
 
-      enabled: noop,
-      cancel: noop
+      function start() {
+        element.addClass(NG_ANIMATE_CLASSNAME);
+        next();
+      }
+
+      function close(success) {
+        if (!domOperationCalled) {
+          domOperation();
+        }
+        element.removeClass(NG_ANIMATE_CLASSNAME);
+        success ? defer.resolve() : defer.reject();
+      }
     };
   }];
 }];

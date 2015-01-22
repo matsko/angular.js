@@ -57,6 +57,10 @@
 
   $AnchorScrollProvider,
   $AnimateProvider,
+  $AnimateQueueProvider,
+  $AnimateSequenceProvider,
+  $NoopAnimateDriverProvider,
+  $AnimateRunnerProvider,
   $BrowserProvider,
   $CacheFactoryProvider,
   $ControllerProvider,
@@ -213,6 +217,10 @@ function publishExternalAPI(angular) {
       $provide.provider({
         $anchorScroll: $AnchorScrollProvider,
         $animate: $AnimateProvider,
+        $animateQueue: $AnimateQueueProvider,
+        $animateSequence: $AnimateSequenceProvider,
+        $noopAnimationDriver: $NoopAnimationDriverProvider,
+        $animateRunner: $AnimateRunnerProvider,
         $browser: $BrowserProvider,
         $cacheFactory: $CacheFactoryProvider,
         $controller: $ControllerProvider,
