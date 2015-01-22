@@ -151,14 +151,16 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
 
       function next(formerData) {
         var result = driver.next(cursor, formerData);
-        // FIXME: $animateSequence should throw an error if nothing
-        // is retruned from the animation loop
+        if (isPromiseLike(result)) {
+          result = { value : result, done : false };
+        }
+
         if (!result || !isDefined(result.value)) {
           throw $animateMinErr('etyanires',
             "Animation driver.next() must respond with an object containing value and done members");
         }
 
-        if (!result || result.done) {
+        if (result.done) {
           // if nothing is returned at all then we assume the animation failed
           // otherwise, so long as the value is not false then we're fine to assume
           // that the animation was successful
