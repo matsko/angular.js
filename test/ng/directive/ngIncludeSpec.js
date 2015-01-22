@@ -632,7 +632,7 @@ describe('ngInclude and transcludes', function() {
   });
 });
 
-describe('ngInclude animations', function() {
+xdescribe('ngInclude animations', function() {
   var body, element, $rootElement;
 
   function html(content) {

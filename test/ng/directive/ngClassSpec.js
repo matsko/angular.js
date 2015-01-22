@@ -374,7 +374,7 @@ describe('ngClass', function() {
   }));
 });
 
-describe('ngClass animations', function() {
+xdescribe('ngClass animations', function() {
   var body, element, $rootElement;
 
   afterEach(function() {

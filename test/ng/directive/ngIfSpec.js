@@ -235,7 +235,7 @@ describe('ngIf and transcludes', function() {
   });
 });
 
-describe('ngIf animations', function() {
+xdescribe('ngIf animations', function() {
   var body, element, $rootElement;
 
   function html(content) {

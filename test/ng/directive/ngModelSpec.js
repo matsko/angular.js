@@ -1132,7 +1132,7 @@ describe('ngModel', function() {
       }));
 
 
-      it('should minimize janky setting of classes during $validate() and ngModelWatch', inject(function($animate, $compile, $rootScope) {
+      xit('should minimize janky setting of classes during $validate() and ngModelWatch', inject(function($animate, $compile, $rootScope) {
         var addClass = $animate.$$addClassImmediately;
         var removeClass = $animate.$$removeClassImmediately;
         var addClassCallCount = 0;
@@ -1541,7 +1541,7 @@ describe('ngModel', function() {
     }));
 
 
-    it('should register/deregister a nested ngModel with parent form when entering or leaving DOM with animations',
+    xit('should register/deregister a nested ngModel with parent form when entering or leaving DOM with animations',
         function() {
 
       // ngAnimate performs the dom manipulation after digest, and since the form validity can be affected by a form
@@ -1608,7 +1608,7 @@ describe('ngModel', function() {
   });
 
 
-  describe('animations', function() {
+  xdescribe('animations', function() {
 
     function findElementAnimations(element, queue) {
       var node = element[0];

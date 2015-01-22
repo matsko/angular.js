@@ -104,7 +104,7 @@ describe('ngShow / ngHide', function() {
   });
 });
 
-describe('ngShow / ngHide animations', function() {
+xdescribe('ngShow / ngHide animations', function() {
   var body, element, $rootElement;
 
   function html(content) {
