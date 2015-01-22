@@ -24,9 +24,10 @@ ddescribe("ngAnimate", function() {
 
             function tick() {
               var result = driver.next();
-              if (result) {
-                if (result.then) {
-                  result.then(tick);
+              if (result && !result.done) {
+                var value = result.value;
+                if (value.then) {
+                  value.then(tick);
                 } else {
                   tick();
                 }

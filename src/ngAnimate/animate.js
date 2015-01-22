@@ -239,6 +239,10 @@ angular.module('ngAnimate', [])
         return fn.apply(fn, args);
       }
 
+      function packageResult(value, done) {
+        return { value : value, done : done };
+      }
+
       function packageAnimations(element, method, fnName, add, remove, options, animations) {
         var asyncOperations = [];
         var syncOperations = [];
@@ -279,7 +283,7 @@ angular.module('ngAnimate', [])
             });
           }
 
-          return promises.length ? $$qAnimate.all(promises) : true;
+          return packageResult(promises.length ? $$qAnimate.all(promises) : true);
         };
       }
 
