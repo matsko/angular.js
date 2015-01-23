@@ -3,29 +3,22 @@
 var $animateMinErr = minErr('$animate');
 
 function $NoopAnimationDriverProvider() {
-  this.$get = function() {
-    return noop;
-  };
+  this.$get = ['$animateRunner', function($animateRunner) {
+    return $animateRunner({});
+  }];
 }
 
 function $AnimateRunnerProvider() {
   this.$get = [function() {
-    return function(promise) {
-      return {
-        progress : noop,
-        next : function() {
-
-        },
-        pause : function() {
-
-        },
-        end : function() {
-
-        },
-        then : function() {
-          return promise.then.apply(promise, arguments);
-        }
-      };
+    return function(obj, driver) {
+      driver = driver || {}
+      obj.next     = driver.next     || noop;
+      obj.end      = driver.end      || noop;
+      obj.pause    = driver.pause    || noop;
+      obj.resume   = driver.resume   || noop;
+      obj.cancel   = driver.cancel   || noop;
+      obj.progress = driver.progress || noop;
+      return obj;
     };
   }];
 }
@@ -43,43 +36,60 @@ var $AnimateProvider = ['$provide', function($provide) {
     $provide.factory(key, factory);
   };
 
-  this.$get = ['$animateSequence', '$rootScope', '$$q', '$animateQueue',
-       function($animateSequence,   $rootScope,   $$q,   $animateQueue) {
+  this.$get = ['$animateQueue', function($animateQueue) {
     return {
       enter : function(element, parent, after, options) {
-        return $animateQueue.push(element, function() {
-          return $animateSequence(element, 'enter', 'ng-enter', null, options, insert);
-        });
+        return $animateQueue.push(element,
+          ['enter', 'ng-enter', null, options, insert]);
 
         function insert() {
           after ? after.after(element) : parent.append(element);
         }
       },
+
+      move : function(element, parent, after, options) {
+        return $animateQueue.push(element,
+          ['move', 'ng-move', null, options, move]);
+
+        function move() {
+          after ? after.after(element) : parent.append(element);
+        }
+      },
+
       leave : function(element, options) {
-        return $animateQueue.push(element, function() {
-          return $animateSequence(element, 'leave', 'ng-leave', null, options, remove);
-        });
+        return $animateQueue.push(element,
+          ['leave', 'ng-leave', null, options, remove]);
 
         function remove() {
           element.remove();
         }
       },
+
       addClass : function(element, className, options) {
-        return $animateQueue.push(element, function() {
-          return $animateSequence(element, 'addClass', className, null, options, addClass);
-        });
+        return $animateQueue.push(element,
+          ['addClass', className, null, options, addClass]);
 
         function addClass() {
-          element.addClass(className);
+          $$jqLite.addClass(element, className);
         }
       },
+
       removeClass : function(element, className, options) {
-        return $animateQueue.push(element, function() {
-          return $animateSequence(element, 'removeClass', null, className, options, removeClass);
-        });
+        return $animateQueue.push(element,
+          ['removeClass', null, className, options, removeClass]);
 
         function removeClass() {
-          element.removeClass(className);
+          $$jqLite.removeClass(element, className);
+        }
+      },
+
+      setClass : function(element, add, remove, options) {
+        return $animateQueue.push(element,
+          ['setClass', add, remove, options, setClass]);
+
+        function setClass() {
+          add    && $$jqLite.addClass(element, add);
+          remove && $$jqLite.removeClass(element, remove);
         }
       }
     };
@@ -87,21 +97,35 @@ var $AnimateProvider = ['$provide', function($provide) {
 }];
 
 function $AnimateQueueProvider() {
-  this.$get = ['$$q', '$rootScope', function($$q, $rootScope) {
+  this.$get = ['$$qAnimate', '$rootScope', '$animateSequence', '$animateRunner',
+       function($$qAnimate,   $rootScope,   $animateSequence,   $animateRunner) {
+
     return {
-      push : function(element, fn) {
-        return wrapPostDigest(fn);
+      push : function(element, details) {
+        return queueAnimation(element, details);
       }
     };
 
-    function wrapPostDigest(fn) {
-      var defer = $$q.defer();
+    function queueAnimation(element, details) {
+      var defer = $$qAnimate.defer();
+      var args = [element].concat(details);
+
+      // we create a fake runner with a working promise.
+      // These methods will become available after the digest has passed
+      var runner = $animateRunner(defer.promise);
+
       $rootScope.$$postDigest(function() {
-        fn().then(function() {
-          defer.resolve();
-        });
+        var realRunner = $animateSequence.apply($animateSequence, args).then(
+          function() { defer.resolve(); },
+          function() { defer.reject(); }
+        );
+
+        // this will update the runner's flow-control events based on
+        // the `realRunner` object.
+        $animateRunner(runner, realRunner);
       });
-      return defer.promise;
+
+      return runner;
     }
   }];
 }
@@ -129,7 +153,7 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
       var cursor = 0;
 
       var defer = $$qAnimate.defer();
-      var runner = $animateRunner(defer.promise);
+      var runner = $animateRunner(defer.promise, driver);
 
       start();
       return runner;
@@ -163,15 +187,9 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
       }
 
       function wrapDriver(driver) {
-        if (angular.isFunction(driver)) {
-          driver = { next: driver };
-        }
-        driver.previous = driver.previous || noop;
-        driver.pause    = driver.pause    || noop;
-        driver.resume   = driver.resume   || noop;
-        driver.cancel   = driver.cancel   || noop;
-        driver.end      = driver.end      || noop;
-        return driver;
+        return angular.isFunction(driver)
+            ? { next: driver }
+            : driver;
       }
 
       function next(formerData) {
