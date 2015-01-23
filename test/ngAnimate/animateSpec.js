@@ -16,8 +16,10 @@ ddescribe("ngAnimate", function() {
 
         return function(ngAnimateJSDriver) {
           runAnimation = function(method, done) {
-            var driver = ngAnimateJSDriver(element, method, ['test-animation'], null, null, null, function() {
-              log.push('dom ' + method);
+            var driver = ngAnimateJSDriver(element, method, {
+              domOperation: function() {
+                log.push('dom ' + method);
+              }
             });
 
             tick();

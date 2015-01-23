@@ -1,6 +1,6 @@
 'use strict';
 
-var $animateMinErr = minErr('$animate');
+var $animateMinErr = minErr('ngAnimate');
 
 function $NoopAnimationDriverProvider() {
   this.$get = ['$animateRunner', function($animateRunner) {
@@ -39,8 +39,7 @@ var $AnimateProvider = ['$provide', function($provide) {
   this.$get = ['$animateQueue', function($animateQueue) {
     return {
       enter : function(element, parent, after, options) {
-        return $animateQueue.push(element,
-          ['enter', 'ng-enter', null, options, insert]);
+        return $animateQueue.push(element, ['enter', options, insert]);
 
         function insert() {
           after ? after.after(element) : parent.append(element);
@@ -48,8 +47,7 @@ var $AnimateProvider = ['$provide', function($provide) {
       },
 
       move : function(element, parent, after, options) {
-        return $animateQueue.push(element,
-          ['move', 'ng-move', null, options, move]);
+        return $animateQueue.push(element, ['move', options, move]);
 
         function move() {
           after ? after.after(element) : parent.append(element);
@@ -57,8 +55,7 @@ var $AnimateProvider = ['$provide', function($provide) {
       },
 
       leave : function(element, options) {
-        return $animateQueue.push(element,
-          ['leave', 'ng-leave', null, options, remove]);
+        return $animateQueue.push(element, ['leave', options, remove]);
 
         function remove() {
           element.remove();
@@ -66,8 +63,9 @@ var $AnimateProvider = ['$provide', function($provide) {
       },
 
       addClass : function(element, className, options) {
-        return $animateQueue.push(element,
-          ['addClass', className, null, options, addClass]);
+        options = options || {};
+        options.add = className;
+        return $animateQueue.push(element, ['addClass', options, addClass]);
 
         function addClass() {
           $$jqLite.addClass(element, className);
@@ -75,8 +73,9 @@ var $AnimateProvider = ['$provide', function($provide) {
       },
 
       removeClass : function(element, className, options) {
-        return $animateQueue.push(element,
-          ['removeClass', null, className, options, removeClass]);
+        options = options || {};
+        options.add = className;
+        return $animateQueue.push(element, ['removeClass', options, removeClass]);
 
         function removeClass() {
           $$jqLite.removeClass(element, className);
@@ -84,8 +83,10 @@ var $AnimateProvider = ['$provide', function($provide) {
       },
 
       setClass : function(element, add, remove, options) {
-        return $animateQueue.push(element,
-          ['setClass', add, remove, options, setClass]);
+        options = options || {};
+        options.add = add;
+        options.remove = remove;
+        return $animateQueue.push(element, ['setClass', options, setClass]);
 
         function setClass() {
           add    && $$jqLite.addClass(element, add);
@@ -136,20 +137,19 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
   this.$get = ['$$qAnimate', '$injector', '$animateRunner',
        function($$qAnimate,   $injector,   $animateRunner) {
 
-    return function(element, method, add, remove, options, domOperation) {
+    return function(element, method, options, domOperation) {
+      options = options || {};
+
       var _domOperation = domOperation || noop;
       var domOperationCalled = false;
-      domOperation = function() {
+      options.domOperation = domOperation = function() {
         if (!domOperationCalled) {
           _domOperation();
           domOperationCalled = true;
         }
       }
 
-      var className = add || remove || '';
-      var classes = resolveElementClasses(element, className);
-
-      var driver = getDriver(element, method, classes, add, options, domOperation);
+      var driver = getDriver(element, method, options);
       var cursor = 0;
 
       var defer = $$qAnimate.defer();
@@ -158,18 +158,7 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
       start();
       return runner;
 
-      function resolveElementClasses(element, extraClasses) {
-        var classes = (element.attr('class') || '').split(' ');
-        if (extraClasses) {
-          var tokens = angular.isArray(extraClasses)
-              ? extraClasses
-              : extraClasses.split(/[\ ,]/);
-          classes = classes.concat(tokens);
-        }
-        return classes;
-      }
-
-      function getDriver(element, method, classes, add, remove, options) {
+      function getDriver(element, method, options) {
         var drivers = $animateProvider.drivers;
 
         // we loop in reverse order since the more general drivers (like CSS and JS)
@@ -179,7 +168,7 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
           if (!$injector.has(driverName)) continue;
 
           var factory = $injector.get(driverName);
-          var driver = factory(element, method, classes, add, remove, options, domOperation);
+          var driver = factory(element, method, options);
           if (driver) {
             return wrapDriver(driver);
           }
@@ -187,6 +176,7 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
       }
 
       function wrapDriver(driver) {
+        // TODO(matias): add a minerror here for when the
         return angular.isFunction(driver)
             ? { next: driver }
             : driver;
@@ -241,11 +231,14 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
       }
 
       function close(success) {
-        if (!domOperationCalled) {
-          domOperation();
+        try {
+          if (!domOperationCalled) {
+            domOperation();
+          }
+        } finally {
+          element.removeClass(NG_ANIMATE_CLASSNAME);
+          success ? defer.resolve() : defer.reject();
         }
-        element.removeClass(NG_ANIMATE_CLASSNAME);
-        success ? defer.resolve() : defer.reject();
       }
     };
   }];

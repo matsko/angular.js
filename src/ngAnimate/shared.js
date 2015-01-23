@@ -1,3 +1,5 @@
+'use strict';
+
 var isArray = angular.isArray;
 var isString = angular.isString;
 var forEach = angular.forEach;
@@ -12,7 +14,7 @@ function packageStyles(options) {
   }
 }
 
-function packageResult(value, done) {
+function yieldWith(value, done) {
   return { value : value, done : done };
 }
 

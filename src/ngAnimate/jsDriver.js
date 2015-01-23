@@ -1,36 +1,47 @@
+'use strict';
+
 var $JsDriverProvider = ['$animateProvider', function($animateProvider) {
   $animateProvider.drivers.push('ngAnimateJSDriver');
 
   var selectors = $animateProvider.$$selectors;
   this.$get = ['$injector', '$$qAnimate', function($injector, $$qAnimate) {
-    return function(element, method, classes, add, remove, options, domOperation) {
+    return function(element, method, options) {
+      var classes = element.attr('class');
+
+      options = options || {};
+      var domOperation = options.domOperation || noop;
+
+      // the lookupAnimations function returns a series of animation objects that are
+      // matched up with one or more of the CSS classes. These animation objects are
+      // defined via the module.animation factory function.
       var animations = lookupAnimations(classes);
-      if (animations.length == 0) return;
+      if (animations.length === 0) return;
 
-      var beforeFn = 'before' + method.charAt(0).toUpperCase() + method.substr(1);
-      var afterFn = method;
-
+      var afterFn, beforeFn;
       if (method == 'leave') {
-        beforeFn = afterFn;
-        afterFn = null;
+        beforeFn = 'leave';
+        afterFn = 'afterLeave';
+      } else {
+        beforeFn = 'before' + method.charAt(0).toUpperCase() + method.substr(1);
+        afterFn = method;
       }
 
-      var after, before = packageAnimations(element, method, beforeFn, add, remove, options, animations);
-      if (afterFn) {
-        after = packageAnimations(element, method, afterFn, add, remove, options, animations);
-      }
+      var cancelFn = noop;
+
+      var before = packageAnimations(element, method, options, animations, beforeFn);
+      var after  = packageAnimations(element, method, options, animations, afterFn);
+      if (!before && !after) return;
 
       var domOperationCalled = false;
       return {
-        pause : function() {
-        },
-        end : function() {
+        cancel : function() {
+          cancelFn();
         },
         next : function(index, previousData) {
           if (before) {
             var result = before();
             before = null;
-            return result;
+            return yieldWith(result);
           }
 
           if(!domOperationCalled) {
@@ -41,29 +52,39 @@ var $JsDriverProvider = ['$animateProvider', function($animateProvider) {
           if (after) {
             var result = after();
             after = null;
-            return result;
+            return yieldWith(result);
           }
         }
       }
     };
 
-    function executeAnimationFn(fn, element, method, add, remove, options, onDone) {
-      var args = [element];
-      if (method == 'setClass') {
-        args.push(add);
-        args.push(remove);
-      } else if (method == 'addClass' || method == 'removeClass') {
-        args.push(add || remove);
+    function executeAnimationFn(fn, element, method, options, onDone) {
+      var classesToAdd = options.add;
+      var classesToRemove = options.remove;
+      var args;
+
+      switch(method) {
+        case 'setClass':
+          args = [element, classesToAdd, classesToRemove, onDone]
+          break;
+
+        case 'addClass':
+          args = [element, classesToAdd, onDone]
+          break;
+
+        case 'removeClass':
+          args = [element, classesToRemove, onDone]
+          break;
+
+        default:
+          args = onDone ? [element, onDone] : [element]
+          break;
       }
-      if (onDone) {
-        args.push(onDone);
-      }
-      args.push(options);
 
       return fn.apply(fn, args);
     }
 
-    function packageAnimations(element, method, fnName, add, remove, options, animations) {
+    function packageAnimations(element, method, options, animations, fnName) {
       var asyncOperations = [];
       var syncOperations = [];
       angular.forEach(animations, function(ani) {
@@ -74,13 +95,13 @@ var $JsDriverProvider = ['$animateProvider', function($animateProvider) {
           var syncAnimation = fnName == 'beforeEnter' || fnName == 'beforeMove';
           if (syncAnimation) {
             syncOperations.push(function() {
-              var result = executeAnimationFn(animation, element, method, add, remove, options);
-              return result === false ? false : result;
+              return executeAnimationFn(animation, element, method, options);
             });
           } else {
+            // note that all of these animations should run in parallel
             asyncOperations.push(function() {
               var defer = $$qAnimate.defer();
-              executeAnimationFn(animation, element, method, add, remove, options, function(result) {
+              executeAnimationFn(animation, element, method, options, function(result) {
                 result === false ? defer.reject() : defer.resolve();
               });
               return defer.promise;
@@ -103,11 +124,12 @@ var $JsDriverProvider = ['$animateProvider', function($animateProvider) {
           });
         }
 
-        return packageResult(promises.length ? $$qAnimate.all(promises) : true);
+        return promises.length ? $$qAnimate.all(promises) : true;
       };
     }
 
     function lookupAnimations(classes) {
+      classes = classes.split(' ');
       var matches = [], flagMap = {};
       for (var i=0; i < classes.length; i++) {
         var klass = classes[i],
