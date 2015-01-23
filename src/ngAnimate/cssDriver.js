@@ -1,3 +1,5 @@
+'use strict';
+
 // Detect proper transitionend/animationend event names.
 var CSS_PREFIX = '', TRANSITION_PROP, TRANSITIONEND_EVENT, ANIMATION_PROP, ANIMATIONEND_EVENT;
 
@@ -129,9 +131,15 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
       return parentID + '-' + node.getAttribute('class') + '-' + extraClasses;
     }
 
-    return function(element, method, classes, add, remove, options, domOperation) {
-      var node = element[0];
+    // FIXME(matias): use a configuration object for add/remove/options
+    return function(element, method, options) {
+      var classes = element.attr('class');
+
+      options = options || {};
+      var domOperation = options.domOperation || noop;
       var styles = packageStyles(options);
+
+      var node = element[0];
       var temporaryStyles = [];
 
       var enterOrMove = method == 'enter' || method == 'move';
@@ -140,21 +148,21 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
         domOperation();
       }
 
-      var fullClassName = [add,remove].join(' ');
       var setupClasses = structural
-          ? fullClassName
-          : (suffixClasses(add, '-add') + ' ' +
-             suffixClasses(remove, '-remove')).trim();
+          ? 'ng-' + method
+          : (suffixClasses(options.add, '-add') + ' ' +
+             suffixClasses(options.remove, '-remove')).trim();
 
       var activeClasses = suffixClasses(setupClasses, '-active');
 
-      var state = 'prepare';
+      var state = 'prepare-animate';
       var pauseFn  = noop;
       var resumeFn = noop;
       var animationFn;
 
       return {
         pause : function() {
+          state = 'paused';
           pauseFn();
         },
 
@@ -175,22 +183,29 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
         next : function() {
           var result = true;
           switch (state) {
-            case 'prepare':
+            case 'prepare-animate':
               animationFn = prepare();
               if (animationFn) {
                 result = waitUntilQuiet();
-                state = 'animate';
+                state = 'start-animate';
               } else {
                 state = 'complete';
               }
               break;
 
-            case 'animate':
+            case 'start-animate':
               if (!structural) {
                 domOperation();
               }
               result = animationFn();
-              state = 'complete';
+              if (result) {
+                state = 'animating';
+                result.finally(function() {
+                  state = 'complete';
+                });
+              } else {
+                state = 'complete';
+              }
               break;
 
             case 'cancelled':
@@ -203,12 +218,9 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
               close();
               state = 'closed';
               break;
-
-            default:
-              return;
           }
 
-          return packageResult(result, state == 'closed');
+          return yieldWith(result, state == 'closed');
         }
       };
 
@@ -222,6 +234,8 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
           }
         }
 
+        // we keep putting this in multiple times even though the value and the cacheKey are the same
+        // because we're keeping an interal tally of how many duplicate animations are detected.
         gcsLookup.put(cacheKey, timings);
         return timings;
       }
@@ -279,11 +293,11 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
                              stagger.animationDuration === 0;
 
         var playPause = function(bool) {
-          if (blockTransition) {
+          if (timings.transitionDuration) {
             blockTransitions(node, false);
           }
 
-          if (blockAnimation) {
+          if (timings.animationDuration) {
             blockAnimations(node, false);
           }
         }
@@ -296,10 +310,17 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
           playPause(false);
         };
 
-        pauseFn();
-        if (blockTransition && styles && styles.from) {
-          element.css(styles.from);
+        if (blockTransition) {
+          if (styles && styles.from) {
+            element.css(styles.from);
+          }
+          blockTransitions(node, false);
         }
+
+        if (blockAnimation) {
+          blockAnimations(node, false);
+        }
+
 
         return function animate() {
           var events = [];
@@ -310,6 +331,14 @@ var $CssDriverProvider = ['$animateProvider', function($animateProvider) {
 
           if (timings.transitionDuration > 0) {
             events.push(TRANSITIONEND_EVENT);
+          }
+
+          if (blockTransition) {
+            blockTransitions(node, true);
+          }
+
+          if (blockAnimation) {
+            blockAnimations(node, true);
           }
 
           var maxDelayTime = Math.max(timings.animationDelay, timings.transitionDelay) * ONE_SECOND;
