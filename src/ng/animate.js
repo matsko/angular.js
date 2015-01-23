@@ -4,7 +4,7 @@ var $animateMinErr = minErr('$animate');
 
 function $NoopAnimationDriverProvider() {
   this.$get = function() {
-    return angular.noop;
+    return noop;
   };
 }
 
@@ -12,7 +12,16 @@ function $AnimateRunnerProvider() {
   this.$get = [function() {
     return function(promise) {
       return {
-        progress : angular.noop,
+        progress : noop,
+        next : function() {
+
+        },
+        pause : function() {
+
+        },
+        end : function() {
+
+        },
         then : function() {
           return promise.then.apply(promise, arguments);
         }
@@ -44,6 +53,15 @@ var $AnimateProvider = ['$provide', function($provide) {
 
         function insert() {
           after ? after.after(element) : parent.append(element);
+        }
+      },
+      leave : function(element, options) {
+        return $animateQueue.push(element, function() {
+          return $animateSequence(element, 'leave', 'ng-leave', null, options, remove);
+        });
+
+        function remove() {
+          element.remove();
         }
       },
       addClass : function(element, className, options) {
@@ -95,11 +113,13 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
        function($$qAnimate,   $injector,   $animateRunner) {
 
     return function(element, method, add, remove, options, domOperation) {
-      var _domOperation = domOperation || angular.noop;
+      var _domOperation = domOperation || noop;
       var domOperationCalled = false;
       domOperation = function() {
-        _domOperation();
-        domOperationCalled = true;
+        if (!domOperationCalled) {
+          _domOperation();
+          domOperationCalled = true;
+        }
       }
 
       var className = add || remove || '';
@@ -146,6 +166,11 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
         if (angular.isFunction(driver)) {
           driver = { next: driver };
         }
+        driver.previous = driver.previous || noop;
+        driver.pause    = driver.pause    || noop;
+        driver.resume   = driver.resume   || noop;
+        driver.cancel   = driver.cancel   || noop;
+        driver.end      = driver.end      || noop;
         return driver;
       }
 
