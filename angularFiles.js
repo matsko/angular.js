@@ -94,6 +94,9 @@ var angularFiles = {
     'ngCookies': [
       'src/ngCookies/cookies.js'
     ],
+    'ngTimeline': [
+      'src/ngTimeline/timeline.js'
+    ],
     'ngMessages': [
       'src/ngMessages/messages.js'
     ],
@@ -148,6 +151,7 @@ var angularFiles = {
     'test/auto/*.js',
     'test/ng/**/*.js',
     'test/ngAnimate/*.js',
+    'test/ngTimeline/*.js',
     'test/ngMessages/*.js',
     'test/ngCookies/*.js',
     'test/ngResource/*.js',
@@ -212,6 +216,7 @@ var angularFiles = {
 
 angularFiles['angularSrcModules'] = [].concat(
   angularFiles['angularModules']['ngAnimate'],
+  angularFiles['angularModules']['ngTimeline'],
   angularFiles['angularModules']['ngMessages'],
   angularFiles['angularModules']['ngCookies'],
   angularFiles['angularModules']['ngResource'],
