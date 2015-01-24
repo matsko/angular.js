@@ -1,4 +1,4 @@
-ddescribe("animations", function() {
+describe("animations", function() {
 
   var element;
   afterEach(function() {

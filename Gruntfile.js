@@ -124,6 +124,9 @@ module.exports = function(grunt) {
       ngAnimate: {
         files: { src: 'src/ngAnimate/**/*.js' },
       },
+      ngTimeline: {
+        files: { src: 'src/ngTimeline/**/*.js' },
+      },
       ngCookies: {
         files: { src: 'src/ngCookies/**/*.js' },
       },
@@ -211,6 +214,10 @@ module.exports = function(grunt) {
       animate: {
         dest: 'build/angular-animate.js',
         src: util.wrap(files['angularModules']['ngAnimate'], 'module')
+      },
+      timeline: {
+        dest: 'build/angular-timeline.js',
+        src: util.wrap(files['angularModules']['ngTimeline'], 'module')
       },
       route: {
         dest: 'build/angular-route.js',
