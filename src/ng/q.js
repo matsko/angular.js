@@ -256,9 +256,8 @@ function $$QAnimateProvider() {
 function qFactory(initFn, nextTick, exceptionHandler) {
   var $qMinErr = minErr('$q', TypeError);
 
-  var self = {};
-  initFn.apply(self);
-  nextTick = bind(self, nextTick);
+  var promiseScope = {};
+  nextTick = bind(promiseScope, nextTick);
 
   function callOnce(self, resolveFn, rejectFn) {
     var called = false;
@@ -284,6 +283,7 @@ function qFactory(initFn, nextTick, exceptionHandler) {
    * @returns {Deferred} Returns a new instance of deferred.
    */
   var defer = function() {
+    initFn.apply(promiseScope);
     return new Deferred();
   };
 

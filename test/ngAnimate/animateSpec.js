@@ -1,4 +1,4 @@
-ddescribe("ngAnimate", function() {
+describe("ngAnimate", function() {
 
   beforeEach(module('ngAnimate'));
 

@@ -6,6 +6,8 @@ angular.module('ngTimeline', [])
 
   .value('ngTimelineNoopDriver', { step : noop })
 
+  .factory('$timelinePlayhead', $TimelinePlayhead)
+
   .factory('$timelineRegistry', $TimelineRegistry)
 
   .factory('$qIterate', $QIterate)
