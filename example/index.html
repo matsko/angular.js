@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html ng-app="MyApp">
+<head>
+<title>My Angular App</title>
+<style>
+.item.ng-enter {
+  transition:0.5s linear all;
+  opacity:0;
+}
+.item.ng-enter.ng-enter-active {
+  opacity:1;
+}
+.item.ng-leave {
+  transition:0.5s linear all;
+  opacity:1;
+}
+.item.ng-leave.ng-leave-active {
+  opacity:0;
+}
+.item.ng-leave-stagger, .item.ng-enter-stagger {
+  -webkit-transition-delay:0.05s;
+  transition-delay:0.05s;
+}
+</style>
+</head>
+<body>
+
+<button ng-click="start()">Start</button>
+<input type="search" ng-model="q" />
+<div ng-repeat="item in items | filter:q" class="item">
+  {{ item }}
+</div>
+
+<script src="../build/angular.js"></script>
+<script src="../build/angular-animate.js"></script>
+<script type="text/javascript">
+angular.module("MyApp", ['ngAnimate'])
+.run(["$rootScope", function($rootScope) {
+  var items = [
+    "Lenna Smith",
+    "Maritza Schneider",
+    "Napoleon Dach",
+    "Camilla Pollich",
+    "Taryn Grimes",
+    "Aaron Runte",
+    "Paolo Mills",
+    "Ally Lynch",
+    "Augusta Brakus",
+    "Therese Russel",
+    "Patrick Upton",
+    "Maude Gutmann",
+    "Jade Johns",
+    "Camren Hackett",
+    "Lexi O'Hara",
+    "Marianna Stehr",
+    "Carrie Labadie",
+    "Zackery Koelpin",
+    "Rico Price",
+    "Kirstin Kertzmann"
+  ];
+
+  $rootScope.start = function() {
+    $rootScope.items = $rootScope.items ? null : items;
+  }
+
+}]);
+</script>
+</body>
+</html>

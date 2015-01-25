@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html ng-app="MyApp">
+<head>
+<title>My Angular App</title>
+<style type="text/css">
+.huge { width:200px; height:200px; line-height:200px; font-size:40px; }
+.hide { display:none; }
+.red { background:red; }
+.blue { background:blue; }
+.rotate { transform: rotate(360deg); }
+.green { background:green; }
+.orange { background: orange; }
+.yellow { background: yellow; }
+.black { background: black; color:white; transition:3s linear all; }
+p { margin:0; padding:0; font-size:20px; width:100px; height:100px; display:inline-block; text-align:center; line-height:100px; }
+
+.away {
+  transition:2s linear all;
+  transform:rotate(180deg);
+  opacity:0;
+}
+</style>
+</head>
+<body>
+
+<ng-timeline match-class="thomas" driver="css">
+  <ng-step styles="{background:randomColor()}" selector="p:nth-child(1)" duration="0.5"></ng-step>
+
+  <ng-step remove-class="hide" selector="p:nth-child(2)"></ng-step>
+  <ng-step add-class="{{ className }}" selector="p:nth-child(2)" duration="0.3"></ng-step>
+
+  <ng-step add-class="green" selector="p:nth-child(3)" duration="0.3" delay="1"></ng-step>
+  <ng-step add-class="orange" selector="p:nth-child(4)" duration="0.3"></ng-step>
+  <ng-step add-class="yellow" selector="p:nth-child(5)" duration="0.3"></ng-step>
+  <ng-step add-class="huge black" selector="*"></ng-step>
+
+</ng-timeline>
+
+<div ng-if="bool" class="thomas">
+  <p>one</p>
+  <p>two</p>
+  <p>three</p>
+  <p>four</p>
+  <p>five</p>
+</div>
+
+<button ng-click="bool=true">Start</button>
+
+<script src="../build/angular.js"></script>
+<script src="../build/angular-animate.js"></script>
+<script src="../build/angular-timeline.js"></script>
+<script>
+angular.module("MyApp", ['ngAnimate', 'ngTimeline'])
+  .run(["$rootScope", function($rootScope) {
+    $rootScope.className = 'blue rotate';
+    $rootScope.randomColor = function() {
+      var colors = [
+        'red',
+        'teal',
+        'mint green',
+        'lime',
+        'teal',
+        'magenta',
+        'pink',
+        'tan',
+        'green'
+      ];
+      return colors[Math.floor(colors.length * Math.random())];
+    };
+  }])
+</script>
+</body>
+</html>
