@@ -10,14 +10,18 @@ function $NoopAnimationDriverProvider() {
 
 function $AnimateRunnerProvider() {
   this.$get = [function() {
+    // there is a lot of variable switching going on here. The main idea
+    // is that the runner can be "updated" later on without having to create
+    // a new variable. The driver that is given will apply it's new methods to
+    // the pre-existing runner/promise object.
     return function(obj, driver) {
-      driver = driver || {}
-      obj.next     = driver.next     || noop;
-      obj.end      = driver.end      || noop;
-      obj.pause    = driver.pause    || noop;
-      obj.resume   = driver.resume   || noop;
-      obj.cancel   = driver.cancel   || noop;
-      obj.progress = driver.progress || noop;
+      driver = driver || {};
+      obj.next     = driver.next   || obj.next   || noop;
+      obj.end      = driver.end    || obj.end    || noop;
+      obj.pause    = driver.pause  || obj.pause  || noop;
+      obj.resume   = driver.resume || obj.resume || noop;
+      obj.cancel   = driver.cancel || obj.cancel || noop;
+      obj.progress = obj.progress  || noop;
       return obj;
     };
   }];
