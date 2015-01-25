@@ -87,15 +87,24 @@ var angularFiles = {
   'angularModules': {
     'ngAnimate': [
       'src/ngAnimate/shared.js',
-      'src/ngAnimate/cssDriver.js',
-      'src/ngAnimate/jsDriver.js',
-      'src/ngAnimate/animate.js'
+      'src/ngAnimate/animateCss.js',
+      'src/ngAnimate/animateCssDriver.js',
+      'src/ngAnimate/animateJsDriver.js',
+      'src/ngAnimate/timelineCssDriver.js',
+      'src/ngAnimate/module.js'
     ],
     'ngCookies': [
       'src/ngCookies/cookies.js'
     ],
     'ngTimeline': [
-      'src/ngTimeline/timeline.js'
+      'src/ngTimeline/shared.js',
+      'src/ngTimeline/animateTimelineDriver.js',
+      'src/ngTimeline/ngStepDirective.js',
+      'src/ngTimeline/ngTimelineDirective.js',
+      'src/ngTimeline/qIterate.js',
+      'src/ngTimeline/timelineItemController.js',
+      'src/ngTimeline/timelineRegistry.js',
+      'src/ngTimeline/module.js'
     ],
     'ngMessages': [
       'src/ngMessages/messages.js'

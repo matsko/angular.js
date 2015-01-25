@@ -307,6 +307,12 @@ function qFactory(initFn, nextTick, exceptionHandler) {
     return new Deferred();
   };
 
+  function promise(fn) {
+    var defered = defer();
+    fn(defered);
+    return defered.promise;
+  }
+
   function Promise() {
     this.$$state = { status: 0 };
   }
@@ -605,6 +611,7 @@ function qFactory(initFn, nextTick, exceptionHandler) {
   $Q.reject = reject;
   $Q.when = when;
   $Q.all = all;
+  $Q.promise = promise;
 
   return $Q;
 }
