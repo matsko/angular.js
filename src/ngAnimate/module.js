@@ -1,7 +1,7 @@
 'use strict';
 
 angular.module('ngAnimate', [])
-  .provider('$animateCSS', $animateCssProvider)
+  .provider('$animateCss', $animateCssProvider)
   .provider('ngTimelineCssDriver', $ngTimelineCssDriverProvider)
   .provider('ngAnimateJsDriver', $ngAnimateJsDriverProvider)
   .provider('ngAnimateCssDriver', $ngAnimateCssDriverProvider);

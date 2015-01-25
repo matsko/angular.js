@@ -1,6 +1,6 @@
 var $ngTimelineCssDriverProvider = [function() {
-  this.$get = ['$$qAnimate', '$animateCSS', '$rootScope',
-       function($$qAnimate,   $animateCSS,   $rootScope) {
+  this.$get = ['$$qAnimate', '$animateCss', '$rootScope',
+       function($$qAnimate,   $animateCss,   $rootScope) {
     var self;
     return self = {
       step : function(element, attributes) {
@@ -17,14 +17,14 @@ var $ngTimelineCssDriverProvider = [function() {
     }
 
     function animate(element, method, options, domOperation) {
-      var animator = $animateCSS(element, method, options);
+      var animator = $animateCss(element, method, options);
       if (!animator) {
         domOperation();
         return false;
       }
 
       return $$qAnimate.promise(function(defered) {
-        $animateCSS.waitUntilQuiet().then(function() {
+        $animateCss.waitUntilQuiet().then(function() {
           domOperation();
           animator.start().then(function() {
             defered.resolve();

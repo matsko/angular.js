@@ -3,7 +3,7 @@
 var $ngAnimateCssDriverProvider = ['$animateProvider', function($animateProvider) {
   $animateProvider.drivers.push('ngAnimateCssDriver');
 
-  this.$get = ['$animateCSS', function($animateCSS) {
+  this.$get = ['$animateCss', function($animateCss) {
     return function(element, method, options) {
       var state = 'prepare-animate';
       var animator = {
@@ -38,9 +38,9 @@ var $ngAnimateCssDriverProvider = ['$animateProvider', function($animateProvider
           var result = true;
           switch (state) {
             case 'prepare-animate':
-              animator = $animateCSS(element, method, options);
+              animator = $animateCss(element, method, options);
               if (animator) {
-                result = $animateCSS.waitUntilQuiet();
+                result = $animateCss.waitUntilQuiet();
                 state = 'start-animate';
               } else {
                 state = 'complete';
