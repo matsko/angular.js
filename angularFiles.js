@@ -103,6 +103,7 @@ var angularFiles = {
       'src/ngTimeline/ngTimelineDirective.js',
       'src/ngTimeline/qIterate.js',
       'src/ngTimeline/timelineItemController.js',
+      'src/ngTimeline/timelinePlayhead.js',
       'src/ngTimeline/timelineRegistry.js',
       'src/ngTimeline/module.js'
     ],
