@@ -1,4 +1,4 @@
-ddescribe("ngTimeline", function() {
+describe("ngTimeline", function() {
   beforeEach(module('ngTimeline'));
 
   it("should work", inject(function(ngTimelineDriver) {

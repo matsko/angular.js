@@ -1,7 +1,7 @@
 'use strict';
 
-var $JsDriverProvider = ['$animateProvider', function($animateProvider) {
-  $animateProvider.drivers.push('ngAnimateJSDriver');
+var $ngAnimateJsDriverProvider = ['$animateProvider', function($animateProvider) {
+  $animateProvider.drivers.push('ngAnimateJsDriver');
 
   var selectors = $animateProvider.$$selectors;
   this.$get = ['$injector', '$$qAnimate', function($injector, $$qAnimate) {

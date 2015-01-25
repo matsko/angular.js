@@ -1,8 +1,8 @@
-describe("ngAnimate", function() {
+ddescribe("ngAnimate", function() {
 
   beforeEach(module('ngAnimate'));
 
-  describe("ngAnimateJSDriver", function() {
+  describe("ngAnimateJsDriver", function() {
     describe("events", function() {
       var animations, runAnimation, element, log;
       beforeEach(module(function($animateProvider) {
@@ -14,9 +14,9 @@ describe("ngAnimate", function() {
           return animations;
         });
 
-        return function(ngAnimateJSDriver) {
+        return function(ngAnimateJsDriver) {
           runAnimation = function(method, done) {
-            var driver = ngAnimateJSDriver(element, method, {
+            var driver = ngAnimateJsDriver(element, method, {
               domOperation: function() {
                 log.push('dom ' + method);
               }
