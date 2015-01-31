@@ -31,7 +31,7 @@
   http://jsperf.com/throw-vs-return
 */
 
-describe('q', function() {
+ddescribe('q', function() {
   var q, defer, deferred, promise, log;
 
   // The following private functions are used to help with logging for testing invocation of the

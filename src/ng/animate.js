@@ -2,12 +2,6 @@
 
 var $animateMinErr = minErr('ngAnimate');
 
-function $NoopAnimationDriverProvider() {
-  this.$get = ['$animateRunner', function($animateRunner) {
-    return $animateRunner({});
-  }];
-}
-
 function $AnimateRunnerProvider() {
   this.$get = [function() {
     // there is a lot of variable switching going on here. The main idea
@@ -29,8 +23,6 @@ function $AnimateRunnerProvider() {
 
 var $AnimateProvider = ['$provide', function($provide) {
   this.drivers = [];
-  this.drivers.push('$noopAnimationDriver');
-
   this.$$selectors = [];
   this.register = function(name, factory) {
     var key = name + '-animation';
@@ -40,7 +32,7 @@ var $AnimateProvider = ['$provide', function($provide) {
     $provide.factory(key, factory);
   };
 
-  this.$get = ['$animateQueue', function($animateQueue) {
+  this.$get = ['$animateQueue', '$$jqLite', function($animateQueue, $$jqLite) {
     return {
       enter : function(element, parent, after, options) {
         return $animateQueue.push(element, ['enter', options, insert]);
@@ -112,17 +104,17 @@ function $AnimateQueueProvider() {
     };
 
     function queueAnimation(element, details) {
-      var defer = $$qAnimate.defer();
+      var defered = $$qAnimate.defer();
       var args = [element].concat(details);
 
       // we create a fake runner with a working promise.
       // These methods will become available after the digest has passed
-      var runner = $animateRunner(defer.promise);
+      var runner = $animateRunner(defered.promise);
 
       $rootScope.$$postDigest(function() {
         var realRunner = $animateSequence.apply($animateSequence, args).then(
-          function() { defer.resolve(); },
-          function() { defer.reject(); }
+          function() { defered.resolve(); },
+          function() { defered.reject(); }
         );
 
         // this will update the runner's flow-control events based on
@@ -138,8 +130,8 @@ function $AnimateQueueProvider() {
 var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
   var NG_ANIMATE_CLASSNAME = 'ng-animate';
 
-  this.$get = ['$$qAnimate', '$injector', '$animateRunner',
-       function($$qAnimate,   $injector,   $animateRunner) {
+  this.$get = ['$$qAnimate', '$injector', '$animateRunner', '$timeline', '$timelinePlayhead',
+       function($$qAnimate,   $injector,   $animateRunner,   $timeline,   $timelinePlayhead) {
 
     return function(element, method, options, domOperation) {
       options = options || {};
@@ -153,16 +145,28 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
         }
       }
 
-      var driver = getDriver(element, method, options);
-      var cursor = 0;
+      var defered = $$qAnimate.defer();
+      var runner = $animateRunner(defered.promise);
 
-      var defer = $$qAnimate.defer();
-      var runner = $animateRunner(defer.promise, driver);
+      var player, driver = getDriver(element, method, domOperation, options);
+      if (driver) {
+        var tree;
+        var tl = $timeline.query(element);
+        if (tl) {
+          tree = tl(element, driver, options);
+        } else {
+          tree = driver.createDefaultTimeline(element, method, domOperation, options);
+        }
 
-      start();
+        player = $timelinePlayhead(tree);
+        start();
+      } else {
+        close();
+      }
+
       return runner;
 
-      function getDriver(element, method, options) {
+      function getDriver(element, method, domOperation, options) {
         var drivers = $animateProvider.drivers;
 
         // we loop in reverse order since the more general drivers (like CSS and JS)
@@ -172,77 +176,32 @@ var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
           if (!$injector.has(driverName)) continue;
 
           var factory = $injector.get(driverName);
-          var driver = factory(element, method, options);
+          var driver = factory(element, method, domOperation, options);
           if (driver) {
-            return wrapDriver(driver);
+            return driver;
           }
-        }
-      }
-
-      function wrapDriver(driver) {
-        // TODO(matias): add a minerror here for when the
-        return angular.isFunction(driver)
-            ? { next: driver }
-            : driver;
-      }
-
-      function next(formerData) {
-        var result = driver.next(cursor, formerData);
-        if (isPromiseLike(result)) {
-          result = { value : result, done : false };
-        }
-
-        if (!result || !isDefined(result.value)) {
-          throw $animateMinErr('etyanires',
-            "Animation driver.next() must respond with an object containing value and done members");
-        }
-
-        if (result.done) {
-          // if nothing is returned at all then we assume the animation failed
-          // otherwise, so long as the value is not false then we're fine to assume
-          // that the animation was successful
-          close(result && result.value !== false);
-          return;
-        }
-
-        var value = result.value;
-        if (isPromiseLike(value)) {
-          // this will force a wait for one reflow which in turn
-          // ensures that the animation step is asynchronous. If
-          // a promise is not returned then we rely on user calling
-          // the callback function to end the animation.
-          value.then(tick, function() { tick(false); });
-        } else {
-          //synchronous animation flow
-          tick(value);
-        }
-
-        function tick(data) {
-          if (data === false) {
-            close(false);
-            return;
-          }
-
-          cursor++;
-          runner.progress(data);
-          next(data);
         }
       }
 
       function start() {
         element.addClass(NG_ANIMATE_CLASSNAME);
-        next();
+
+        var playerRunner = player.start();
+        $animateRunner(runner, playerRunner);
+
+        playerRunner.then(function() {
+          close(true);
+        }, function() {
+          close(false);
+        });
       }
 
       function close(success) {
-        try {
-          if (!domOperationCalled) {
-            domOperation();
-          }
-        } finally {
-          element.removeClass(NG_ANIMATE_CLASSNAME);
-          success ? defer.resolve() : defer.reject();
+        if (!domOperationCalled) {
+          domOperation();
         }
+        element.removeClass(NG_ANIMATE_CLASSNAME);
+        success ? defered.resolve() : defered.reject();
       }
     };
   }];

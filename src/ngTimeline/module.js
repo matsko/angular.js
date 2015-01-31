@@ -16,6 +16,4 @@ angular.module('ngTimeline', [])
 
   .directive('ngTimeline', $NgTimelineDirective)
 
-  .directive('ngStep', $NgStepDirective)
-
-  .provider('ngTimelineDriver', $NgTimelineDriverProvider)
+  .directive('ngStep', $NgStepDirective);

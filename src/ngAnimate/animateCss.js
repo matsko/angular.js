@@ -138,11 +138,11 @@ function Lookup() {
   }
 }
 
-var $animateCssProvider = ['$animateProvider', function($animateProvider) {
+var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
   var gcsLookup = new Lookup();
   var gcsStaggerLookup = new Lookup();
-  this.$get = ['$window', '$$jqLite', '$$qAnimate', '$timeout', '$$rAF', '$animateRunner',
-       function($window,   $$jqLite,   $$qAnimate,   $timeout,   $$rAF,   $animateRunner) {
+  this.$get = ['$window', '$$jqLite', '$$qAnimate', '$timeout', '$$rAF', '$animateRunner', '$document',
+       function($window,   $$jqLite,   $$qAnimate,   $timeout,   $$rAF,   $animateRunner,   $document) {
 
     var parentCounter = 0;
     function gcsHashFn(node, extraClasses) {
@@ -192,17 +192,25 @@ var $animateCssProvider = ['$animateProvider', function($animateProvider) {
       return stagger;
     }
 
-    var lastRafRequest, rafDefered;
+    var cancelLastRafRequest, rafDefered, bod = $document[0].body;
     function waitUntilQuiet() {
-      if (lastRafRequest) {
-        lastRafRequest(); //cancels the request
+      if (cancelLastRafRequest) {
+        cancelLastRafRequest(); //cancels the request
       }
       if (!rafDefered) {
         rafDefered = $$qAnimate.defer();
       }
-      lastRafRequest = $$rAF(function() {
+      cancelLastRafRequest = $$rAF(function() {
         gcsLookup.flush();
         gcsStaggerLookup.flush();
+
+        //the line below will force the browser to perform a repaint so
+        //that all the animated elements within the animation frame will
+        //be properly updated and drawn on screen. This is required to
+        //ensure that the the before animation is properly flushed so that
+        //the active state picks up from there. DO NOT REMOVE THIS LINE.
+        var a = bod.offsetWidth + 1;
+
         var defered = rafDefered;
         rafDefered = null;
         defered.resolve();

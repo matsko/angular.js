@@ -1,81 +1,32 @@
-'use strict';
-
-var $ngAnimateCssDriverProvider = ['$animateProvider', function($animateProvider) {
+var $NgAnimateCssDriverProvider = ['$animateProvider', function($animateProvider) {
   $animateProvider.drivers.push('ngAnimateCssDriver');
 
-  this.$get = ['$animateCss', function($animateCss) {
-    return function(element, method, options) {
-      var state = 'prepare-animate';
-      var animator = {
-        pause : noop,
-        resume : noop,
-        cancel : noop,
-        start : noop
+  this.$get = ['$$qAnimate', '$animateCss', '$rootScope',
+       function($$qAnimate,   $animateCss,   $rootScope) {
+
+    return function(element, event, domOperation, options) {
+      init.createDefaultTimeline = function(element) {
+        var animateStepFn = init(element);
+        return [{
+          start : function() {
+            return animateStepFn(element, options);
+          }
+        }];
       };
 
-      return {
-        pause : function() {
-          state = 'paused';
-          animator.pause();
-        },
+      return init;
 
-        resume : function() {
-          resumeFn();
-          animator.resume();
-        },
+      function init(rootElement) {
+        if (event == 'enter' || event == 'move') {
+          domOperation();
+        }
 
-        end : function() {
-          state = 'completed';
-          this.next();
-        },
-
-        cancel : function() {
-          state = 'cancelled';
-          this.next();
-        },
-
-        next : function() {
-          var result = true;
-          switch (state) {
-            case 'prepare-animate':
-              animator = $animateCss(element, method, options);
-              if (animator) {
-                result = $animateCss.waitUntilQuiet();
-                state = 'start-animate';
-              } else {
-                state = 'complete';
-              }
-              break;
-
-            case 'start-animate':
-              if (!structural) {
-                domOperation();
-              }
-              result = animator.start();
-              if (result) {
-                state = 'animating';
-                result.finally(function() {
-                  state = 'complete';
-                });
-              } else {
-                state = 'complete';
-              }
-              break;
-
-            case 'cancelled':
-              result = false;
-              // allow fall-through
-            case 'complete':
-              if (method == 'leave') {
-                domOperation();
-              }
-              state = 'closed';
-              break;
-          }
-
-          return yieldWith(result, state == 'closed');
+        return function stepFn(element, options) {
+          options = options || {};
+          options.event = event;
+          return $animateCss(element, options);
         }
       };
     }
-  }];
+  }]
 }];
