@@ -37,6 +37,7 @@ var angularFiles = {
     'src/ng/sniffer.js',
     'src/ng/templateRequest.js',
     'src/ng/testability.js',
+    'src/ng/timeline.js',
     'src/ng/timeout.js',
     'src/ng/urlUtils.js',
     'src/ng/window.js',
@@ -90,7 +91,6 @@ var angularFiles = {
       'src/ngAnimate/animateCss.js',
       'src/ngAnimate/animateCssDriver.js',
       'src/ngAnimate/animateJsDriver.js',
-      'src/ngAnimate/timelineCssDriver.js',
       'src/ngAnimate/module.js'
     ],
     'ngCookies': [

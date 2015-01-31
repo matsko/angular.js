@@ -56,13 +56,17 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
   var MIN_INTERVAL_TIME = 10;
 
   return function(timeline) {
+    if (angular.isArray(timeline)) {
+      timeline = { start: noop, children : timeline };
+    }
+
     var intervalDuration = findHighestCommonPositionFactor(timeline);
     var hasPositionBasedSteps = intervalDuration > 0;
     intervalDuration = Math.max(intervalDuration, MIN_INTERVAL_TIME);
 
     var matrix = {};
     var labels = {};
-    var count, time, ticker, defered;
+    var count, total, time, ticker, defered;
     var started;
 
     return angular.extend({
@@ -122,11 +126,20 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
     }
 
     function trigger(node) {
-      var val = node.start();
-      isPromiseLike(val) ? val.then(ready) : ready();
+      var details = node.start();
+      if (!details || !details.start) {
+        ready();
+      } else {
+        var val = details.start();
+        isPromiseLike(val) ? val.then(ready) : ready();
+      }
 
       function ready() {
-        count++;
+        if (++count >= total) {
+          end();
+          return;
+        }
+
         var parent = node.parent;
         if (parent) {
           var label = parent.label;
@@ -144,7 +157,7 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
 
       function next() {
         var node = queue.pop();
-        if (!node) return;
+        if (!node || !started) return;
 
         if (node.position) {
           var position = node.position .toString();

@@ -76,7 +76,7 @@ ddescribe("$timelinePlayhead", function() {
     expect(signature).toBe('ABxyCEDbc');
   }));
 
-  iit("should resolve the provided promise when all node functions are complete",
+  it("should resolve the provided promise when all node functions are complete",
     inject(function($timelinePlayhead, $interval, $$rAF) {
 
     var signature = '';

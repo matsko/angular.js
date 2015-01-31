@@ -1,6 +1,6 @@
 'use strict';
 
-var $ngAnimateJsDriverProvider = ['$animateProvider', function($animateProvider) {
+var $NgAnimateJsDriverProvider = ['$animateProvider', function($animateProvider) {
   $animateProvider.drivers.push('ngAnimateJsDriver');
 
   var selectors = $animateProvider.$$selectors;
