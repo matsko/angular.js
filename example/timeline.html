@@ -3,6 +3,7 @@
 <head>
 <title>My Angular App</title>
 <style type="text/css">
+p { width:200px!important; transition:0.3s linear all!important; }
 .huge { width:200px; height:200px; line-height:200px; font-size:40px; }
 .hide { display:none; }
 .red { background:red; }
@@ -24,15 +25,18 @@ p { margin:0; padding:0; font-size:20px; width:100px; height:100px; display:inli
 <body>
 
 <ng-timeline match-class="thomas" driver="css">
-  <ng-step styles="{background:randomColor()}" selector="p:nth-child(1)" duration="0.5"></ng-step>
-
   <ng-step remove-class="hide" selector="p:nth-child(2)"></ng-step>
-  <ng-step add-class="{{ className }}" selector="p:nth-child(2)" duration="0.3"></ng-step>
 
-  <ng-step add-class="green" selector="p:nth-child(3)" duration="0.3" delay="1"></ng-step>
+  <ng-step add-class="red" selector="p:nth-child(1)" duration="0.3" delay="10"></ng-step>
+  <ng-step add-class="green" selector="p:nth-child(2)" duration="0.3" delay="10"></ng-step>
+  <ng-step add-class="{{ className }}" selector="p:nth-child(3)" duration="0.3"></ng-step>
+
   <ng-step add-class="orange" selector="p:nth-child(4)" duration="0.3"></ng-step>
   <ng-step add-class="yellow" selector="p:nth-child(5)" duration="0.3"></ng-step>
   <ng-step add-class="huge black" selector="*"></ng-step>
+
+  <ng-step remove-class="black" selector=":nth-child(odd)"></ng-step>
+  <ng-step add-class="rotate" selector=":nth-child(even)"></ng-step>
 
 </ng-timeline>
 
