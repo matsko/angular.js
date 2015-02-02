@@ -1,6 +1,6 @@
 'use strict';
 
-describe("$animateCss", function() {
+ddescribe("$animateCss", function() {
 
   beforeEach(module('ngAnimate'));
 
@@ -764,7 +764,7 @@ describe("$animateCss", function() {
         expect(element).not.toHaveClass('ng-enter-active');
       }));
 
-      it("should reject the animation once passed",
+      it("should still resolve the animation once expired",
         inject(function($animateCss, $document, $rootElement, $timeout) {
 
         ss.addRule('.ng-enter', 'transition:10s linear all;');
@@ -775,14 +775,16 @@ describe("$animateCss", function() {
 
         var animator = $animateCss(element, { event: 'enter' });
 
-        var failed;
-        animator.start().catch(function() {
-          failed = true;
-        });
+        var failed, passed;
+        animator.start().then(function() {
+            passed = true;
+          }, function() {
+            failed = true;
+          });
 
         triggerAnimationStartFrame();
         $timeout.flush(15000);
-        expect(failed).toBe(true);
+        expect(passed).toBe(true);
       }));
 
       it("should not resolve/reject after passing if the animation completed successfully",

@@ -580,7 +580,10 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         }
 
         function onAnimationExpired() {
-          close(true);
+          // although an expired animation is a failed animation, getting to
+          // this outcome is very easy if the CSS code screws up. Therefore we
+          // should still continue normally as if the animation completed correctly
+          close();
         }
 
         function onAnimationProgress(event) {
