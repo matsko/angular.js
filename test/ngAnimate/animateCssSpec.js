@@ -115,6 +115,7 @@ ddescribe("$animateCss", function() {
 
     it('should expose flags transition and animation values on the animator object', inject(function($animateCss) {
       animator = $animateCss(element, {
+        event: 'enter',
         transitionStyle: '1s linear all',
         keyframeStyle: 'my_animation 20s'
       });
@@ -1154,12 +1155,13 @@ ddescribe("$animateCss", function() {
 
     they('should remove the class-$prop-add and class-$prop-active CSS classes from the element once the animation is done',
       ['enter', 'leave', 'move'], function(event) {
-      inject(function($animateCss, $rootElement) {
+      inject(function($animateCss, $rootElement, $document) {
         var element = jqLite('<div></div>');
         $rootElement.append(element);
+        angular.element($document[0].body).append($rootElement);
 
         var options = {};
-        options[event] = 'class';
+        options.event = event;
         options.duration = 10;
         options.to = fakeStyle;
 
@@ -1171,8 +1173,8 @@ ddescribe("$animateCss", function() {
         browserTrigger(element, 'transitionend',
           { timeStamp: Date.now() + 1000, elapsedTime: 10 });
 
-        expect(element).not.toHaveClass('class-' + event);
-        expect(element).not.toHaveClass('class-' + event + '-active');
+        expect(element).not.toHaveClass('ng-' + event);
+        expect(element).not.toHaveClass('ng-' + event + '-active');
       });
     });
 
@@ -1332,8 +1334,6 @@ ddescribe("$animateCss", function() {
         };
         var animator = $animateCss(element, options);
 
-        expect(element.css('transition-duration')).toEqual('');
-        expect(element.css(prefix + 'animation-duration')).toEqual('');
         animator.start();
         triggerAnimationStartFrame();
 
@@ -1757,7 +1757,6 @@ ddescribe("$animateCss", function() {
         inject(function($animateCss, $rootElement) {
 
         var options = {
-          event: 'enter',
           duration: 3,
           from : { background: 'blue' }
         };
@@ -1771,7 +1770,6 @@ ddescribe("$animateCss", function() {
 
         var emptyObject = {};
         var options = {
-          event: 'enter',
           duration: 3,
           to: emptyObject,
           from: emptyObject
