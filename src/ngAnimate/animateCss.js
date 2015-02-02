@@ -230,12 +230,12 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       var animationCompleted;
       var defered;
 
-      options = options || {};
       if (options.duration === 0) {
         close();
         return;
       }
 
+      options = options || {};
       var method = options.event && isArray(options.event)
             ? options.event.join(' ')
             : options.event;
@@ -259,11 +259,19 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         addRemoveClassName += fixClasses(options.removeClass, '-remove');
       }
 
-      var setupClasses = [structuralClassName, addRemoveClassName].join(' ');
+      var setupClasses = [structuralClassName, addRemoveClassName].join(' ').trim();
       var fullClassName =  classes + ' ' + setupClasses;
       var activeClasses = fixClasses(setupClasses, '-active');
-      var cacheKey = gcsHashFn(node, fullClassName);
+      var hasStyles = styles.to && Object.keys(styles.to).length > 0;
 
+      // there is no way we can trigger an animation since no styles or
+      // no classes are being applied which would then trigger a transition
+      if (!hasStyles && !setupClasses) {
+        close();
+        return false;
+      }
+
+      var cacheKey = gcsHashFn(node, fullClassName);
       var stagger = computeCachedCSSStaggerStyles(node, setupClasses, cacheKey, {
         transitionDelay:    TRANSITION_PROP + DELAY_KEY,
         transitionDuration: TRANSITION_PROP + DURATION_KEY,
@@ -277,6 +285,15 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         var transitionStyle = [TRANSITION_PROP, options.transitionStyle]
         applyInlineStyle(node, transitionStyle);
         temporaryStyles.push(transitionStyle);
+      }
+
+      if (options.duration >= 0) {
+        var applyOnlyDuration = node.style[TRANSITION_PROP].length > 0;
+        var durationStyle = getCssTransitionDurationStyle(options.duration, applyOnlyDuration);
+
+        // we set the duration so that it will be picked up by getComputedStyle later
+        applyInlineStyle(node, durationStyle);
+        temporaryStyles.push(durationStyle);
       }
 
       if (options.keyframeStyle) {
@@ -294,37 +311,25 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         animationIterationCount: ANIMATION_PROP  + ANIMATION_ITERATION_COUNT_KEY
       });
 
-      var hasStyles = styles.to && Object.keys(styles.to).length > 0;
-
       var maxDelay = Math.max(timings.animationDelay, timings.transitionDelay);
       var maxDuration = Math.max(
         (timings.animationDuration * timings.animationIterationCount) || 0,
         (timings.transitionDuration) || 0);
 
       var flags = {};
-      flags.hasTransitions          = !!timings.transitionDuration;
-      flags.hasAnimations           = !!timings.animationDuration;
-      flags.hasTransitionAll        = timings.hasTransitions && timings.transitionProperty == 'all';
-      flags.applyStyles             = hasStyles && !!(maxDuration || options.duration);
-      flags.applyTransitionDuration = (options.duration
-                                        && (hasStyles || timings.transitionDuration))
-                                      || (hasStyles &&
-                                            ((flags.hasTransitions && !flags.hasTransitionAll)
-                                             || (flags.hasAnimations && !flags.hasTransitions)));
-
+      flags.hasTransitions          = timings.transitionDuration > 0;
+      flags.hasAnimations           = timings.animationDuration > 0;
+      flags.hasTransitionAll        = flags.hasTransitions && timings.transitionProperty == 'all';
+      flags.applyStyles             = hasStyles && maxDuration > 0;
+      flags.applyTransitionDuration = hasStyles && (
+                                        (flags.hasTransitions && !flags.hasTransitionAll)
+                                         || (flags.hasAnimations && !flags.hasTransitions));
       flags.applyAnimationDuration   = options.duration && flags.hasAnimations;
       flags.applyTransitionDelay     = options.delay >= 0 && (flags.applyTransitionDuration || flags.hasTransitions);
       flags.applyAnimationDelay      = options.delay >= 0 && flags.hasAnimations;
       flags.recalculateTimingStyles  = addRemoveClassName.length > 0;
 
       if (flags.applyTransitionDuration || flags.applyAnimationDuration) {
-        // there is no way we can trigger a transition if there is no class nor any styles
-        // to render in the transition animation
-        if (maxDuration === 0 && !hasStyles) {
-          close();
-          return false;
-        }
-
         maxDuration = options.duration ? parseFloat(options.duration) : maxDuration;
 
         if (flags.applyTransitionDuration) {
@@ -473,39 +478,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           delete options.removeClass;
         }
 
-        if (flags.recalculateTimingStyles) {
-          fullClassName = node.className + ' ' + setupClasses;
-          cacheKey = gcsHashFn(node, fullClassName);
-          timings = computeCachedCSSStyles(node, fullClassName, cacheKey, {
-            transitionDuration:      TRANSITION_PROP + DURATION_KEY,
-            transitionDelay:         TRANSITION_PROP + DELAY_KEY,
-            transitionProperty:      TRANSITION_PROP + PROPERTY_KEY,
-            animationDuration:       ANIMATION_PROP  + DURATION_KEY,
-            animationDelay:          ANIMATION_PROP  + DELAY_KEY,
-            animationIterationCount: ANIMATION_PROP  + ANIMATION_ITERATION_COUNT_KEY
-          });
-
-          maxDelay = Math.max(timings.animationDelay, timings.transitionDelay);
-          maxDuration = Math.max(
-            timings.animationDuration * timings.animationIterationCount,
-            timings.transitionDuration);
-
-          if (maxDuration === 0) {
-            close();
-            return;
-          }
-        }
-
-        var events = [];
-
-        if (timings.transitionDuration) {
-          events.push(TRANSITIONEND_EVENT);
-        }
-
-        if (timings.animationDuration) {
-          events.push(ANIMATIONEND_EVENT);
-        }
-
+        var startTime, events = [];
         var playPause = function(bool) {
           if (!animationCompleted) {
             animationPaused = !bool;
@@ -520,9 +493,6 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
             close();
           }
         };
-
-        var startTime = Date.now();
-        element.on(events.join(' '), onAnimationProgress);
 
         // checking the stagger duration prevents an accidently cascade of the CSS delay style
         // being inherited from the parent. If the transition duration is zero then we can safely
@@ -571,6 +541,43 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           });
 
           $$jqLite.addClass(element, activeClasses);
+
+          if (flags.recalculateTimingStyles) {
+            fullClassName = node.className + ' ' + setupClasses;
+            cacheKey = gcsHashFn(node, fullClassName);
+            timings = computeCachedCSSStyles(node, fullClassName, cacheKey, {
+              transitionDuration:      TRANSITION_PROP + DURATION_KEY,
+              transitionDelay:         TRANSITION_PROP + DELAY_KEY,
+              transitionProperty:      TRANSITION_PROP + PROPERTY_KEY,
+              animationDuration:       ANIMATION_PROP  + DURATION_KEY,
+              animationDelay:          ANIMATION_PROP  + DELAY_KEY,
+              animationIterationCount: ANIMATION_PROP  + ANIMATION_ITERATION_COUNT_KEY
+            });
+
+            maxDelay = Math.max(timings.animationDelay, timings.transitionDelay);
+            maxDuration = Math.max(
+              timings.animationDuration * timings.animationIterationCount,
+              timings.transitionDuration);
+
+            if (maxDuration === 0) {
+              close();
+              return;
+            }
+
+            maxDelayTime = maxDelay * ONE_SECOND;
+            maxDurationTime = maxDuration * ONE_SECOND;
+          }
+
+          if (timings.transitionDuration) {
+            events.push(TRANSITIONEND_EVENT);
+          }
+
+          if (timings.animationDuration) {
+            events.push(ANIMATIONEND_EVENT);
+          }
+
+          startTime = Date.now();
+          element.on(events.join(' '), onAnimationProgress);
           $timeout(onAnimationExpired, CLOSING_TIME_BUFFER * maxDurationTime);
 
           if (styles.to) {
