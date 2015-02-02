@@ -101,10 +101,9 @@ var angularFiles = {
       'src/ngTimeline/animateTimelineDriver.js',
       'src/ngTimeline/ngStepDirective.js',
       'src/ngTimeline/ngTimelineDirective.js',
-      'src/ngTimeline/qIterate.js',
       'src/ngTimeline/timelineItemController.js',
       'src/ngTimeline/timelinePlayhead.js',
-      'src/ngTimeline/timelineRegistry.js',
+      'src/ngTimeline/timeline.js',
       'src/ngTimeline/module.js'
     ],
     'ngMessages': [

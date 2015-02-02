@@ -1,25 +1,26 @@
 'use strict';
 
-var $NgStepDirective = ['$$qAnimate', function($$qAnimate) {
+var $NgStepDirective = ['$$qAnimate', '$rootScope', function($$qAnimate, $rootScope) {
   return {
-    require: ['^ngTimeline', 'ngStep'],
+    require: 'ngStep',
     controller: 'ngTimelineItemController',
-    link : function(scope, element, attrs, ctrls) {
-      var ngTimeline = ctrls[0];
-      var ctrl = ctrls[1];
+    link : function(scope, element, attrs, ctrl) {
+      ctrl.start = function() {
+        var rootElement = ctrl.getElement();
+        var driver = ctrl.getDriver();
+        var driverFn = driver(rootElement);
 
-      ctrl.add({ start : startAnimation });
-      ngTimeline.add(ctrl);
-
-      function startAnimation(rootElement) {
-        var driver = ngTimeline.getDriver();
         var targets = attrs.selector
           ? rootElement[0].querySelectorAll(attrs.selector)
           : [rootElement];
 
         var promises = [];
         angular.forEach(targets, function(target) {
-          promises.push(driver.step(angular.element(target), cloneAttrs(attrs)));
+          var startFn = driverFn(angular.element(target), cloneAttrs(attrs, $rootScope));
+          if (startFn) {
+            var runner = startFn.start();
+            promises.push(runner);
+          }
         });
 
         return $$qAnimate.all(promises);
@@ -27,11 +28,20 @@ var $NgStepDirective = ['$$qAnimate', function($$qAnimate) {
     }
   };
 
-  function cloneAttrs(attrs) {
+  function cloneAttrs(attrs, scope) {
     var copy = {};
     angular.forEach(attrs, function(value, key) {
       if (key.charAt(0) != '$') {
-        copy[key] = value;
+        switch(key) {
+          case 'to':
+          case 'from':
+          case 'duration':
+            copy[key] = scope.$eval(value);
+          break;
+          default:
+            copy[key] = value;
+          break;
+        }
       }
     });
     return copy;

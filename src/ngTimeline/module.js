@@ -2,15 +2,15 @@
 
 angular.module('ngTimeline', [])
 
-  .value('noopTimeline', { add : noop, driver : noop })
-
-  .value('ngTimelineNoopDriver', { step : noop })
+  .value('noopTimeline', {
+    add : noop,
+    driver : noop,
+    element: noop
+  })
 
   .factory('$timelinePlayhead', $TimelinePlayhead)
 
-  .factory('$timelineRegistry', $TimelineRegistry)
-
-  .factory('$qIterate', $QIterate)
+  .factory('$timeline', $Timeline)
 
   .controller('ngTimelineItemController', $TimelineItemController)
 

@@ -109,7 +109,7 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
           }
           val = val.start;
         }
-        val = val ? val() : val;
+        val = isFunction(val) ? val() : val;
       }
 
       if (val === false) {
