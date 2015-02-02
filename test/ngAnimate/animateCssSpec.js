@@ -1,6 +1,6 @@
 'use strict';
 
-ddescribe("$animateCss", function() {
+describe("$animateCss", function() {
 
   beforeEach(module('ngAnimate'));
 
@@ -454,7 +454,7 @@ ddescribe("$animateCss", function() {
       }));
     });
 
-    ddescribe("staggering", function() {
+    describe("staggering", function() {
       it("should apply a stagger based when an active ng-EVENT-stagger class with a transition-delay is detected",
         inject(function($animateCss, $document, $rootElement, $timeout) {
 

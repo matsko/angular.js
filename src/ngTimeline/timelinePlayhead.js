@@ -74,7 +74,7 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
       end : end
     });
 
-    function end() {
+    function end(failed) {
       if (ticker) {
         $interval.cancel(ticker);
         ticker = null;
@@ -82,7 +82,7 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
 
       cancelEverything();
       started = false;
-      defered.resolve();
+      failed ? defered.reject() : defered.resolve();
     }
 
     function cancelEverything() {
@@ -126,12 +126,25 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
     }
 
     function trigger(node) {
-      var details = node.start();
-      if (!details || !details.start) {
-        ready();
+      var val = node.start();
+      if (val && !isPromiseLike(val)) {
+        // TODO(matias): we need to examine the duration value here
+        var startFn = (isFunction(val) ? val : val.start) || noop;
+        val = startFn();
+      }
+
+      if (val === false) {
+        end(true);
+        return;
+      }
+
+      if (isPromiseLike(val)) {
+        return val.then(ready, function() {
+          end(true);
+        });
       } else {
-        var val = details.start();
-        isPromiseLike(val) ? val.then(ready) : ready();
+        // there is no return value or it is not a promise so we just continue as normal
+        ready();
       }
 
       function ready() {
@@ -140,15 +153,29 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
           return;
         }
 
+        var label = node.label;
+
+        // only leaf nodes can consider themselves done
+        // when a operation ends on here since no other
+        // nodes will send the message over
+        if (label && node.total == 0) {
+          markLabelAsComplete(label);
+        }
+
         var parent = node.parent;
         if (parent) {
-          var label = parent.label;
-          if (++parent.count >= parent.total && label) {
-            labels[label] = true;
-            tick(label);
+          parent.count++;
+          label = parent.label;
+          if (label && parent.count >= parent.total) {
+            markLabelAsComplete(label);
           }
         }
       }
+    }
+
+    function markLabelAsComplete(label) {
+      labels[label] = true;
+      tick(label);
     }
 
     function walkTree(step) {
@@ -162,7 +189,7 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
         if (node.position) {
           var position = node.position .toString();
           if (isFutureLabel(position)) {
-            var label = position * ONE_SECOND;
+            var label = position >= 0 ? position * ONE_SECOND : position;
             matrix[label] = matrix[label] || [];
             matrix[label].push(node);
           } else {
@@ -172,6 +199,11 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
           node.count = 0;
           node.total = 0;
           var children = node.children || [];
+          if (children.length) {
+            // timeline nodes are allowed to have an optional
+            // start function, but steps are not
+            node.start = node.start || noop;
+          }
           for (var i=children.length-1;i>=0;i--) {
             var child = children[i];
             if (child.position) {
