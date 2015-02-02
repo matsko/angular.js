@@ -8,34 +8,6 @@ function gcd(a, b) {
   return gcd(b, a % b);
 };
 
-function scanTimelinePositions(matrix, labels, timeline) {
-  var total = 0;
-  angular.forEach(timeline.children, function(child) {
-    var position = child.position;
-    if (position === undefined) {
-      var label = '0';
-      var previousChild = labels[label];
-      if (previousChild) {
-        previousChild.chain = previousChild.chain || [];
-        previousChild.chain.push(child);
-      } else {
-        labels[label] = child;
-        position = 0;
-      }
-    }
-
-    if (position >= 0) {
-      var index = (position * ONE_SECOND).toString();
-      matrix[index] = matrix[index] || [];
-      matrix[index].push(child);
-    }
-
-    total++;
-  });
-
-  return total;
-}
-
 function findHighestCommonPositionFactor(timeline) {
   var time = 0;
   var entry;
@@ -61,11 +33,13 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
     }
 
     var intervalDuration = findHighestCommonPositionFactor(timeline);
+    intervalDuration = 100;
     var hasPositionBasedSteps = intervalDuration > 0;
     intervalDuration = Math.max(intervalDuration, MIN_INTERVAL_TIME);
 
     var matrix = {};
     var labels = {};
+    var futureLabels = {};
     var count, total, time, ticker, defered;
     var started;
 
@@ -122,15 +96,20 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
     }
 
     function isFutureLabel(position) {
-      return position >= 0 ? position > time : !labels[position];
+      return position >= 0 ? position > time : !(labels[position] || {}).complete;
     }
 
     function trigger(node) {
       var val = node.start();
       if (val && !isPromiseLike(val)) {
-        // TODO(matias): we need to examine the duration value here
-        var startFn = (isFunction(val) ? val : val.start) || noop;
-        val = startFn();
+        if (!isFunction(val) && val.start) {
+          if (val.duration && node.label) {
+            node.duration = val.duration;
+            resolveFutureLabelDetails(node.label, node.duration);
+          }
+          val = val.start;
+        }
+        val = val ? val() : val;
       }
 
       if (val === false) {
@@ -173,8 +152,56 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
       }
     }
 
+    function resolveFutureLabelDetails(label, duration) {
+      var nodes = futureLabels[label];
+      if (!nodes) return;
+
+      delete futureLabels[label];
+
+      forEach(nodes, function(entry) {
+        var finalDuration = (time + duration + entry.offset) * ONE_SECOND;
+        if (isFutureLabel(finalDuration)) {
+          finalDuration = finalDuration.toString();
+          matrix[finalDuration] = matrix[finalDuration] || [];
+          matrix[finalDuration].push(entry.node);
+        } else {
+          walkTree(entry.node);
+        }
+      });
+    }
+
+    function placeWaitOnLabel(position, node) {
+      var label = position;
+      if (position >= 0) { //numerical
+        label = position * ONE_SECOND;
+      } else {
+        var hasOffset = position.match(/(.+?)([+-])(\d+)$/);
+        if (hasOffset) {
+          var labelName = hasOffset[1];
+          var subtract = hasOffset[2].charAt(0) == '-';
+          var offset = parseFloat(hasOffset[3]);
+          offset = subtract ? -offset : offset;
+
+          // this label doesn't exist yet, but it will be created once the right
+          // animation is run and once it has it's own duration
+          var existingNode = labels[labelName];
+          if (!existingNode) {
+            futureLabels[labelName] = futureLabels[labelName] || [];
+            futureLabels[labelName].push({ node: node, offset : offset });
+            return;
+          }
+
+          label = existingNode.duration + offset;
+        }
+      }
+
+      matrix[label] = matrix[label] || [];
+      matrix[label].push(node);
+    }
+
     function markLabelAsComplete(label) {
-      labels[label] = true;
+      labels[label] = labels[label] || {};
+      labels[label].complete = true;
       tick(label);
     }
 
@@ -186,15 +213,15 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
         var node = queue.pop();
         if (!node || !started) return;
 
+        if (node.label) {
+          labels[node.label] = node;
+        }
+
         if (node.position) {
-          var position = node.position .toString();
-          if (isFutureLabel(position)) {
-            var label = position >= 0 ? position * ONE_SECOND : position;
-            matrix[label] = matrix[label] || [];
-            matrix[label].push(node);
-          } else {
-            walkTree(node);
-          }
+          var position = node.position.toString();
+          isFutureLabel(position)
+              ? placeWaitOnLabel(position, node)
+              : walkTree(node);
         } else {
           node.count = 0;
           node.total = 0;
@@ -221,33 +248,5 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
         }
       }
     }
-
-    // 1. look at the current node
-    // if (node.position future)
-    //  -> future? then you orphan it and place it in the matrix
-    //    -> next = next sibling
-    //        CONTINUE
-    //
-    // if (node.position past)
-    //    -> run asynchronously somehow
-    //    -> next = next sibling
-    //        CONTINUE
-    //
-    // trigger(node).then
-    //    parent.count++;
-    //
-    //    if (node.children)
-    //      next = next child
-    //    else if (sibling)
-    //      next = nextSibling()
-    //    else
-    //      if parent.count >= parent.total
-    //        next = nextSibling(parent)
-    //        CONTINUE
-    //
-    //  nextSibling(node)
-    //      fire labels
-    //
-    // -- after loop --
   };
 }];

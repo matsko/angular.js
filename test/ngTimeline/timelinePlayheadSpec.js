@@ -517,8 +517,8 @@ ddescribe("$timelinePlayhead", function() {
 
       var timeline = {
         children: [
-          { name : '1', start : animateFn('FIRST'), label: 'long-animation' },
-          { name : '2', start : animateFn('SECOND'), position: 'long-animation' }
+          { start : animateFn('FIRST'), label: 'long-animation' },
+          { start : animateFn('SECOND'), position: 'long-animation' }
         ]
       };
 
@@ -583,6 +583,43 @@ ddescribe("$timelinePlayhead", function() {
 
       triggerNext();
       expect(lastTwoMessages()).toEqual(['started-e', 'started-c']);
+    }));
+
+    it("should allow positions to be offset based on the duration of a label",
+      inject(function($q, $rootScope, $interval, $timelinePlayhead) {
+
+      var defered = $q.defer();
+      var timeline = {
+        children: [{
+          label: 'megaAnimation',
+          name: '1',
+          start: function() {
+            log('started-FIRST');
+            return {
+              duration : 3,
+              start : function() {
+                return defered.promise.then(function() {
+                  log('ended-FIRST');
+                });
+              }
+            }
+          }
+        },{
+          name: '2',
+          position: 'megaAnimation-2',
+          start: function() {
+            log('started-SECOND');
+          }
+        }]
+      };
+
+      player = $timelinePlayhead(timeline);
+      player.start();
+
+      expect(capturedLog).toEqual(['started-FIRST']);
+      $interval.flush(2000);
+
+      expect(capturedLog).toEqual(['started-FIRST', 'started-SECOND']);
     }));
   });
 
