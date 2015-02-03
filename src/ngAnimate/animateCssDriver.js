@@ -21,9 +21,10 @@ var $NgAnimateCssDriverProvider = ['$animateProvider', function($animateProvider
           domOperation();
         }
 
-        return function stepFn(element, options) {
+        return function stepFn(element, options, index) {
           options = options || {};
           options.event = event;
+          options.staggerIndex = index;
           return $animateCss(element, options);
         }
       };

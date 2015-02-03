@@ -271,13 +271,24 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         return false;
       }
 
-      var cacheKey = gcsHashFn(node, fullClassName);
-      var stagger = computeCachedCSSStaggerStyles(node, setupClasses, cacheKey, {
-        transitionDelay:    TRANSITION_PROP + DELAY_KEY,
-        transitionDuration: TRANSITION_PROP + DURATION_KEY,
-        animationDelay:     ANIMATION_PROP  + DELAY_KEY,
-        animationDuration:  ANIMATION_PROP  + DURATION_KEY
-      });
+      var cacheKey, stagger;
+      if (options.stagger > 0) {
+        var staggerVal = parseFloat(options.stagger);
+        stagger = {
+          transitionDelay: staggerVal,
+          animationDelay: staggerVal,
+          transitionDuration: 0,
+          animationDuration: 0
+        };
+      } else {
+        cacheKey = gcsHashFn(node, fullClassName);
+        stagger = computeCachedCSSStaggerStyles(node, setupClasses, cacheKey, {
+          transitionDelay:    TRANSITION_PROP + DELAY_KEY,
+          transitionDuration: TRANSITION_PROP + DURATION_KEY,
+          animationDelay:     ANIMATION_PROP  + DELAY_KEY,
+          animationDuration:  ANIMATION_PROP  + DURATION_KEY
+        });
+      }
 
       $$jqLite.addClass(element, setupClasses);
 
@@ -368,7 +379,11 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       var maxDelayTime = maxDelay * ONE_SECOND;
       var maxDurationTime = maxDuration * ONE_SECOND;
 
-      var itemIndex = stagger ? gcsLookup.count(cacheKey) - 1 : 0;
+      var itemIndex = stagger
+          ? options.staggerIndex >= 0
+              ? options.staggerIndex
+              : gcsLookup.count(cacheKey) - 1
+          : 0;
       if (!options.skipBlocking) {
         flags.blockTransition = hasStyles || (structural && timings.transitionDuration > 0);
         flags.blockAnimation = timings.animationDuration > 0 &&
@@ -468,16 +483,6 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       function start() {
         if (animationClosed) return;
 
-        if (options.addClass) {
-          element.addClass(options.addClass);
-          delete options.addClass;
-        }
-
-        if (options.removeClass) {
-          element.removeClass(options.removeClass);
-          delete options.removeClass;
-        }
-
         var startTime, events = [];
         var playPause = function(bool) {
           if (!animationCompleted) {
@@ -539,6 +544,16 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
             var value = entry[1];
             node.style[key] = value;
           });
+
+          if (options.addClass) {
+            element.addClass(options.addClass);
+            delete options.addClass;
+          }
+
+          if (options.removeClass) {
+            element.removeClass(options.removeClass);
+            delete options.removeClass;
+          }
 
           $$jqLite.addClass(element, activeClasses);
 

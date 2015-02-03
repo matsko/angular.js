@@ -739,6 +739,69 @@ ddescribe("$animateCss", function() {
           expect(elm).not.toHaveClass('ng-enter');
         }
       }));
+
+      it("should issue a stagger if a stagger value is provided in the options",
+        inject(function($animateCss, $document, $rootElement, $timeout) {
+
+        angular.element($document[0].body).append($rootElement);
+        ss.addRule('.ng-enter', 'transition:2s linear all');
+
+        var elements = [];
+        for (var i=0;i<5;i++) {
+          var elm = jqLite('<div></div>');
+          elements.push(elm);
+          $rootElement.append(elm);
+
+          $animateCss(elm, {
+            event: 'enter',
+            stagger: 0.5
+          }).start();
+          expect(elm).toHaveClass('ng-enter');
+        }
+
+        triggerAnimationStartFrame();
+
+        expect(elements[0]).toHaveClass('ng-enter-active');
+        for (var i=1;i<5;i++) {
+          var elm = elements[i];
+
+          expect(elm).not.toHaveClass('ng-enter-active');
+          $timeout.flush(500);
+          expect(elm).toHaveClass('ng-enter-active');
+
+          browserTrigger(elm, 'transitionend',
+            { timeStamp: Date.now() + 1000, elapsedTime: 2 });
+
+          expect(elm).not.toHaveClass('ng-enter');
+          expect(elm).not.toHaveClass('ng-enter-active');
+          expect(elm).not.toHaveClass('ng-enter-stagger');
+        }
+      }));
+
+      it("should only add/remove classes once the stagger timeout has passed",
+        inject(function($animateCss, $document, $rootElement, $timeout) {
+
+        angular.element($document[0].body).append($rootElement);
+
+        var element = jqLite('<div class="green"></div>');
+        $rootElement.append(element);
+
+        $animateCss(element, {
+          addClass: 'red',
+          removeClass: 'green',
+          duration: 5,
+          stagger: 0.5,
+          staggerIndex : 3
+        }).start();
+
+        triggerAnimationStartFrame();
+        expect(element).toHaveClass('green');
+        expect(element).not.toHaveClass('red');
+
+        $timeout.flush(1500);
+        expect(element).not.toHaveClass('green');
+        expect(element).toHaveClass('red');
+      }));
     });
 
     describe("closing timeout", function() {

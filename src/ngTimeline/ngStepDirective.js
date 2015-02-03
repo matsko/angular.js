@@ -15,8 +15,8 @@ var $NgStepDirective = ['$$qAnimate', '$rootScope', function($$qAnimate, $rootSc
           : [rootElement];
 
         var promises = [];
-        angular.forEach(targets, function(target) {
-          var startFn = driverFn(angular.element(target), cloneAttrs(attrs, $rootScope));
+        angular.forEach(targets, function(target, index) {
+          var startFn = driverFn(angular.element(target), cloneAttrs(attrs, $rootScope), index);
           if (startFn) {
             var runner = startFn.start();
             promises.push(runner);
