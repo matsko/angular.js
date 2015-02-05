@@ -12,6 +12,8 @@
 
 var $animateMinErr = minErr('ngAnimate');
 
+var NG_ANIMATE_CLASSNAME = 'ng-animate';
+
 function $AnimateRunnerProvider() {
   this.$get = [function() {
     // there is a lot of variable switching going on here. The main idea
@@ -42,28 +44,37 @@ var $AnimateProvider = ['$provide', function($provide) {
     $provide.factory(key, factory);
   };
 
+  var animationsEnabled = true;
+
   this.$get = ['$animateQueue', '$$jqLite', function($animateQueue, $$jqLite) {
     return {
-      enter : function(element, parent, after, options) {
-        return $animateQueue.push(element, 'enter', options, insert);
 
-        function insert() {
+      enabled : function() {
+        return $animateQueue.enabled.apply($animateQueue, arguments);
+      },
+
+      enter : function(element, parent, after, options) {
+        parent = parent || after.parent();
+        return $animateQueue.push(element, parent, 'enter', options, domEnter);
+
+        function domEnter() {
           after ? after.after(element) : parent.append(element);
         }
       },
 
       move : function(element, parent, after, options) {
-        return $animateQueue.push(element, 'move', options, move);
+        parent = parent || after.parent();
+        return $animateQueue.push(element, parent, 'move', options, domMove);
 
-        function move() {
+        function domMove() {
           after ? after.after(element) : parent.append(element);
         }
       },
 
       leave : function(element, options) {
-        return $animateQueue.push(element, 'leave', options, remove);
+        return $animateQueue.push(element, element.parent(), 'leave', options, domLeave);
 
-        function remove() {
+        function domLeave() {
           element.remove();
         }
       },
@@ -71,9 +82,9 @@ var $AnimateProvider = ['$provide', function($provide) {
       addClass : function(element, className, options) {
         options = options || {};
         options.addClass = className;
-        return $animateQueue.push(element, 'addClass', options, addClass);
+        return $animateQueue.push(element, element.parent(), 'addClass', options, domAddClass);
 
-        function addClass() {
+        function domAddClass() {
           $$jqLite.addClass(element, className);
         }
       },
@@ -81,9 +92,9 @@ var $AnimateProvider = ['$provide', function($provide) {
       removeClass : function(element, className, options) {
         options = options || {};
         options.removeClass = className;
-        return $animateQueue.push(element, 'removeClass', options, removeClass);
+        return $animateQueue.push(element, element.parent(), 'removeClass', options, domRemoveClass);
 
-        function removeClass() {
+        function domRemoveClass() {
           $$jqLite.removeClass(element, className);
         }
       },
@@ -92,9 +103,9 @@ var $AnimateProvider = ['$provide', function($provide) {
         options = options || {};
         options.addClass = add;
         options.removeClass = remove;
-        return $animateQueue.push(element, 'setClass', options, setClass);
+        return $animateQueue.push(element, element.parent(), 'setClass', options, domSetClass);
 
-        function setClass() {
+        function domSetClass() {
           add    && $$jqLite.addClass(element, add);
           remove && $$jqLite.removeClass(element, remove);
         }
@@ -157,17 +168,75 @@ function $AnimateQueueProvider() {
     return currentAnimation.state === RUNNING_STATE && newAnimation.structural;
   });
 
-  this.$get = ['$$qAnimate', '$rootScope', '$animateSequence', '$animateRunner',
-       function($$qAnimate,   $rootScope,   $animateSequence,   $animateRunner) {
-    var lookup = new HashMap();
+  this.$get = ['$$qAnimate', '$rootScope', '$rootElement', '$document', '$animateSequence', '$animateRunner', '$templateRequest',
+       function($$qAnimate,   $rootScope,   $rootElement,   $document,   $animateSequence,   $animateRunner,   $templateRequest) {
+
+    var animationsEnabled = null;
+    var activeAnimationsLookup = new HashMap();
+    var disabledElementsLookup = new HashMap();
+
+    // Wait until all directive and route-related templates are downloaded and
+    // compiled. The $templateRequest.totalPendingRequests variable keeps track of
+    // all of the remote templates being currently downloaded. If there are no
+    // templates currently downloading then the watcher will still fire anyway.
+    var deregisterWatch = $rootScope.$watch(
+      function() { return $templateRequest.totalPendingRequests; },
+      function(val, oldVal) {
+        if (val !== 0) return;
+        deregisterWatch();
+
+        // Now that all templates have been downloaded, $animate will wait until
+        // the post digest queue is empty before enabling animations. By having two
+        // calls to $postDigest calls we can ensure that the flag is enabled at the
+        // very end of the post digest queue. Since all of the animations in $animate
+        // use $postDigest, it's important that the code below executes at the end.
+        // This basically means that the page is fully downloaded and compiled before
+        // any animations are triggered.
+        $rootScope.$$postDigest(function() {
+          $rootScope.$$postDigest(function() {
+            // we check for null directly in the event that the application already called
+            // .enabled() with whatever arguments that it provided it with
+            if (animationsEnabled === null) {
+              animationsEnabled = true;
+            }
+          });
+        });
+      }
+    );
 
     return {
-      push : function(element, method, options, domOperation) {
-        return queueAnimation(element, method, options, domOperation);
+      push : function(element, parent, method, options, domOperation) {
+        return queueAnimation(element, parent, method, options, domOperation);
+      },
+
+      enabled : function(bool) {
+        var argCount = arguments.length;
+        if (isElement(bool)) {
+          var element = bool;
+          var recordExists = disabledElementsLookup.get(element);
+
+          // if nothing is set then the animation is enabled
+          bool = !recordExists;
+
+          if (argCount > 1) {
+            bool = !!arguments[1];
+            if (!bool) {
+              disabledElementsLookup.put(element, true);
+            } else if (recordExists) {
+              disabledElementsLookup.remove(element);
+            }
+          }
+        } else if (argCount === 1) {
+          animationsEnabled = !!bool;
+        } else {
+          bool = animationsEnabled;
+        }
+
+        return bool === true;
       }
     };
 
-    function queueAnimation(element, method, options, domOperation) {
+    function queueAnimation(element, parent, method, options, domOperation) {
       options = options || {};
 
       options.addClass = isArray(options.addClass)
@@ -180,16 +249,43 @@ function $AnimateQueueProvider() {
 
       domOperation = domOperation || noop;
 
-      var isStructural = ['enter', 'leave', 'move'].indexOf(method) >= 0;
+      // we create a fake runner with a working promise.
+      // These methods will become available after the digest has passed
+      var defered = $$qAnimate.defer();
+      var runner = $animateRunner(defered.promise);
 
-      var existingAnimation = lookup.get(element) || {};
+      var isStructural = ['enter', 'move', 'leave'].indexOf(method) >= 0;
+      var existingAnimation = activeAnimationsLookup.get(element) || {};
       var existingAnimationExists = !!existingAnimation.state;
+
+      // this is a hard disable of all animations for the application or on
+      // the element itself, therefore  there is no need to continue further
+      // past this point if not enabled
+      var skipAnimations = !animationsEnabled || disabledElementsLookup.get(element);
+
+      // there is no point in traversing the same collection of parent ancestors if a followup
+      // animation will be run on the same element that already did all that checking work
+      if (!skipAnimations && (!existingAnimationExists || existingAnimation.state != PRE_DIGEST_STATE)) {
+        skipAnimations = !areAnimationsAllowed(element, parent);
+      }
+
+      if (skipAnimations) {
+        applyAnimationOptions(element, options);
+        domOperation();
+        defered.resolve();
+        return runner;
+      }
+
+      if (isStructural) {
+        closeChildAnimations(element);
+      }
 
       // the counter keeps track of cancelled animations
       var newAnimation = {
         structural : isStructural,
         method : method,
         options : options,
+        parent : parent || existingAnimation.parent,
         domOperation : domOperation,
         runner : runner
       };
@@ -233,17 +329,12 @@ function $AnimateQueueProvider() {
         options = mergeAnimationOptions(element, options, {});
       }
 
-      // we create a fake runner with a working promise.
-      // These methods will become available after the digest has passed
-      var defered = $$qAnimate.defer();
-      var runner = $animateRunner(defered.promise);
-
       var counter = (existingAnimation.counter || 0) + 1;
       newAnimation.counter = counter;
       markElementAnimationState(element, PRE_DIGEST_STATE, newAnimation);
 
       $rootScope.$$postDigest(function() {
-        var details = lookup.get(element);
+        var details = activeAnimationsLookup.get(element);
         var animationCancelled = !details;
 
         // this means that the previous animation was cancelled
@@ -290,19 +381,69 @@ function $AnimateQueueProvider() {
       return runner;
     }
 
+    function closeChildAnimations(element) {
+      var children = element[0].getElementsByClassName(NG_ANIMATE_CLASSNAME);
+      forEach(children, function(child) {
+        var details = activeAnimationsLookup.get(child);
+        details.runner.end();
+      });
+    }
+
     function clearElementAnimationState(element) {
-      lookup.remove(element);
+      activeAnimationsLookup.remove(element);
     }
 
     function applyAnimationOptions(element, options) {
       //$animateSequence.$$closeAnimation(element, options);
     }
 
+    function isMatchingElement(elm1, elm2) {
+      return elm1[0] == elm2[0];
+    }
+
+    function areAnimationsAllowed(element, parent) {
+      var bodyElement = jqLite($document[0].body);
+      var bodyElementDetected = false;
+      var rootElementDetected = isMatchingElement(parent, $rootElement);
+
+      parent = rootElementDetected
+        ? element
+        : parent || element.parent();
+
+      if (!parent) return false;
+
+      while(parent && parent.length) {
+        var details = activeAnimationsLookup.get(parent) || {};
+        // either an enter, leave or move animation will commence
+        // therefore we can't allow any animations to take place
+        // but if a parent animation is class-based then that's ok
+        if (details.structural || disabledElementsLookup.get(parent)) {
+          return false;
+        }
+
+        if (!rootElementDetected) {
+          // angular doesn't want to attempt to animate elements outside of the application
+          // therefore we need to ensure that the rootElement is an ancestor of the current element
+          rootElementDetected = isMatchingElement(parent, $rootElement);
+        } else if (isMatchingElement(parent, bodyElement)) {
+          // we also need to ensure that the element is or will be apart of the body element
+          // otherwise it is pointless to even issue an animation to be rendered
+          bodyElementDetected = true;
+          break;
+        }
+
+        parent = parent.parent();
+      }
+
+      return rootElementDetected && bodyElementDetected;
+    }
+
     function splitClasses(classes) {
-      var obj = {};
       if (isString(classes)) {
         classes = classes.split(' ');
       }
+
+      var obj = {};
       forEach(classes, function(klass) {
         // sometimes the split leaves empty string values
         // incase extra spaces were applied to the options
@@ -384,20 +525,18 @@ function $AnimateQueueProvider() {
     function markElementAnimationState(element, state, details) {
       details = details || {};
       details.state = state;
-      var oldValue = lookup.get(element);
+      var oldValue = activeAnimationsLookup.get(element);
       if (oldValue) {
         oldValue = extend(oldValue, details);
       } else {
         oldValue = details;
       }
-      lookup.put(element, details);
+      activeAnimationsLookup.put(element, details);
     }
   }];
 }
 
 var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
-  var NG_ANIMATE_CLASSNAME = 'ng-animate';
-
   this.$get = ['$$qAnimate', '$injector', '$animateRunner', '$timeline', '$timelinePlayhead',
        function($$qAnimate,   $injector,   $animateRunner,   $timeline,   $timelinePlayhead) {
 
