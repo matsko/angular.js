@@ -1,174 +1,251 @@
-describe("animations", function() {
+ddescribe("animations", function() {
 
   var element;
   afterEach(function() {
     dealoc(element);
   });
 
-  function packageResult(value, done) {
-    return { value : value, done : done };
-  }
+  var getNode = function(element) {
+    return isArray(element) ? element[0] : element;
+  };
 
-  describe("drivers", function() {
-    it("should allow custom drivers to be registered", function() {
-      var spy = jasmine.createSpy();
-      module(function($animateProvider, $provide) {
-        $provide.value('customDriver', function(element, method) {
-          spy(element, method);
-          return function() {
-            return packageResult(true, true);
-          };
-        });
-        $animateProvider.drivers.push('customDriver');
+  describe('$animate', function() {
+    var parent, options, capturedAnimation;
+
+    beforeEach(module(function($provide) {
+      options = {};
+      capturedAnimation = null;
+
+      var fakePromise;
+
+      $provide.value('$animateSequence', function() {
+        capturedAnimation = arguments;
+        return fakePromise;
       });
-      inject(function($animateSequence) {
-        element = angular.element('<div></div>');
-        $animateSequence(element, 'some-method');
 
-        var args  = spy.mostRecentCall.args;
-        var elm = args[0];
-        var method = args[1];
+      return function($document, $rootElement, $q) {
+        fakePromise = $q.defer().promise;
+        element = jqLite('<div>element</div>');
+        parent = jqLite('<div>parent</div>');
+        parent2 = jqLite('<div>parent</div>');
 
-        expect(method).toBe('some-method');
-        expect(elm[0]).toBe(element[0]);
-      });
-    });
+        $rootElement.append(parent);
+        $rootElement.append(parent2);
+        jqLite($document[0].body).append($rootElement);
+      }
+    }));
 
-    describe("driver.next()", function() {
-      var driverFn;
-      element = angular.element('<div></div>');
+    it('enter() should issue an enter animation with the correct DOM operation', inject(function($animate, $rootScope) {
+      $animate.enter(element, parent, null, options);
+      $rootScope.$digest();
 
-      beforeEach(module(function($animateProvider, $provide) {
-        $provide.value('driver', function() {
-          return function() {
-            return driverFn.apply(driverFn, arguments);
-          };
-        });
-        $animateProvider.drivers.push('driver');
-      }));
+      expect(capturedAnimation[0]).toBe(element);
+      expect(capturedAnimation[1]).toBe('enter');
+      expect(capturedAnimation[2]).toEqual(options);
 
-      it("should synchronously continue running when true is returned and then resolve when nothing is returned",
-        inject(function($animateSequence, $$rAF) {
+      expect(parent.children().length).toBe(0);
+      capturedAnimation[3]();
+      expect(parent.children().length).toBe(1);
+    }));
 
-        var calls = 0;
-        driverFn = function(index, data) {
-          var done = ++calls >= 5;
-          return packageResult(true, done);
-        };
+    it('move() should issue a move animation with the correct DOM operation', inject(function($animate, $rootScope) {
+      parent.append(element);
+      $animate.move(element, parent2, null, options);
+      $rootScope.$digest();
 
-        var resolved, rejected;
-        $animateSequence(element, 'some-method').then(
-          function() { resolved = true; },
-          function() { rejected = true; }
-        );
+      expect(capturedAnimation[0]).toBe(element);
+      expect(capturedAnimation[1]).toBe('move');
+      expect(capturedAnimation[2]).toEqual(options);
 
-        $$rAF.flush();
+      expect(parent.children().length).toBe(1);
+      expect(parent2.children().length).toBe(0);
+      capturedAnimation[3]();
+      expect(parent.children().length).toBe(0);
+      expect(parent2.children().length).toBe(1);
+    }));
 
-        expect(calls).toBe(5);
-        expect(resolved).toBe(true);
-        expect(rejected).not.toBe(true);
-      }));
+    it('leave() should issue a leave animation with the correct DOM operation', inject(function($animate, $rootScope) {
+      parent.append(element);
+      $animate.leave(element, options);
+      $rootScope.$digest();
 
-      it("should synchronously stop and then reject if `false` is returned",
-        inject(function($animateSequence, $$rAF) {
+      expect(capturedAnimation[0]).toBe(element);
+      expect(capturedAnimation[1]).toBe('leave');
+      expect(capturedAnimation[2]).toEqual(options);
 
-        var calls = 0;
-        driverFn = function(index, data) {
-          calls++;
-          return packageResult(false, true);
-        };
+      expect(element.parent().length).toBe(1);
+      capturedAnimation[3]();
+      expect(element.parent().length).toBe(0);
+    }));
 
-        var resolved, rejected;
-        $animateSequence(element, 'some-method').then(
-          function() { resolved = true; },
-          function() { rejected = true; }
-        );
+    it('addClass() should issue an addClass animation with the correct DOM operation', inject(function($animate, $rootScope) {
+      parent.append(element);
+      $animate.addClass(element, 'red', options);
+      $rootScope.$digest();
 
-        $$rAF.flush();
+      expect(capturedAnimation[0]).toBe(element);
+      expect(capturedAnimation[1]).toBe('addClass');
+      expect(capturedAnimation[2]).toEqual(options);
 
-        expect(calls).toBe(1);
-        expect(resolved).not.toBe(true);
-        expect(rejected).toBe(true);
-      }));
+      expect(element).not.toHaveClass('red');
+      capturedAnimation[3]();
+      expect(element).toHaveClass('red');
+    }));
 
-      it("should asynchronously resolve if a promise is returned",
-        inject(function($animateSequence, $rootScope, $q, $$rAF) {
+    it('removeClass() should issue a removeClass animation with the correct DOM operation', inject(function($animate, $rootScope) {
+      parent.append(element);
+      element.addClass('blue');
 
-        var calls = 0;
-        var defer = $q.defer();
-        driverFn = function(index, data) {
-          return packageResult(defer.promise, ++calls >= 2);
-        };
+      $animate.removeClass(element, 'blue', options);
+      $rootScope.$digest();
 
-        var resolved, rejected;
-        $animateSequence(element, 'some-method').then(
-          function() { resolved = true; },
-          function() { rejected = true; }
-        );
+      expect(capturedAnimation[0]).toBe(element);
+      expect(capturedAnimation[1]).toBe('removeClass');
+      expect(capturedAnimation[2]).toEqual(options);
 
-        defer.resolve();
-        $$rAF.flush();
+      expect(element).toHaveClass('blue');
+      capturedAnimation[3]();
+      expect(element).not.toHaveClass('blue');
+    }));
+
+    it('setClass() should issue a setClass animation with the correct DOM operation', inject(function($animate, $rootScope) {
+      parent.append(element);
+      element.addClass('green');
+
+      $animate.setClass(element, 'yellow', 'green', options);
+      $rootScope.$digest();
+
+      expect(capturedAnimation[0]).toBe(element);
+      expect(capturedAnimation[1]).toBe('setClass');
+      expect(capturedAnimation[2]).toEqual(options);
+
+      expect(element).not.toHaveClass('yellow');
+      expect(element).toHaveClass('green');
+      capturedAnimation[3]();
+      expect(element).toHaveClass('yellow');
+      expect(element).not.toHaveClass('green');
+    }));
+
+    describe('should merge', function() {
+      it('multiple class-based animations together into one before the digest passes', inject(function($animate, $rootScope) {
+        parent.append(element);
+        element.addClass('green');
+
+        $animate.addClass(element, 'red');
+        $animate.addClass(element, 'blue');
+        $animate.removeClass(element, 'green');
+
         $rootScope.$digest();
 
-        expect(calls).toBe(2);
-        expect(resolved).toBe(true);
-        expect(rejected).not.toBe(true);
+        expect(capturedAnimation[0]).toBe(element);
+        expect(capturedAnimation[1]).toBe('setClass');
+
+        options = capturedAnimation[2];
+        expect(options.addClass).toEqual('red blue');
+        expect(options.removeClass).toEqual('green');
+
+        expect(element).not.toHaveClass('red');
+        expect(element).not.toHaveClass('blue');
+        expect(element).toHaveClass('green');
+        capturedAnimation[3]();
+        expect(element).toHaveClass('red');
+        expect(element).toHaveClass('blue');
+        expect(element).not.toHaveClass('green');
       }));
 
-      it("should asynchronously reject and close if a promise is returned and then rejected",
-        inject(function($animateSequence, $rootScope, $q, $$rAF) {
+      it('multiple class-based animations together into a single structural event before the digest passes', inject(function($animate, $rootScope) {
+        element.addClass('green');
 
-        var calls = 0;
-        var defer = $q.defer();
-        driverFn = function(index, data) {
-          calls++;
-          return packageResult(defer.promise);
-        };
+        $animate.enter(element, parent);
+        $animate.addClass(element, 'red');
+        $animate.removeClass(element, 'green');
 
-        var resolved, rejected;
-        $animateSequence(element, 'some-method').then(
-          function() { resolved = true; },
-          function() { rejected = true; }
-        );
-
-        defer.reject();
-        $$rAF.flush();
         $rootScope.$digest();
 
-        expect(calls).toBe(1);
-        expect(resolved).not.toBe(true);
-        expect(rejected).toBe(true);
+        expect(capturedAnimation[0]).toBe(element);
+        expect(capturedAnimation[1]).toBe('enter');
+
+        options = capturedAnimation[2];
+        expect(options.addClass).toEqual('red');
+        expect(options.removeClass).toEqual('green');
+
+        expect(element.parent().length).toBe(0);
+        expect(element).not.toHaveClass('red');
+        expect(element).toHaveClass('green');
+
+        capturedAnimation[3]();
+
+        expect(element.parent().length).toBe(1);
+        expect(element).toHaveClass('red');
+        expect(element).not.toHaveClass('green');
       }));
 
+      it('should automatically cancel out class-based animations if the element already contains or doesn\' contain the applied classes',
+        inject(function($animate, $rootScope) {
+
+        parent.append(element);
+        element.addClass('one three');
+
+        $animate.addClass(element, 'one');
+        $animate.addClass(element, 'two');
+        $animate.removeClass(element, 'three');
+        $animate.removeClass(element, 'four');
+
+        $rootScope.$digest();
+
+        options = capturedAnimation[2];
+        expect(options.addClass).toEqual('two');
+        expect(options.removeClass).toEqual('three');
+      }));
+
+      it('and skip the animation entirely if no class-based animations remain and if there is no structural animation applied',
+        inject(function($animate, $rootScope) {
+
+        parent.append(element);
+        element.addClass('one three');
+
+        $animate.addClass(element, 'one');
+        $animate.removeClass(element, 'four');
+
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeFalsy();
+      }));
+
+      it('but not skip the animation if it is a structural animation and if there are no classes to be animated',
+        inject(function($animate, $rootScope) {
+
+        element.addClass('one three');
+
+        $animate.addClass(element, 'one');
+        $animate.removeClass(element, 'four');
+        $animate.enter(element, parent);
+
+        $rootScope.$digest();
+
+        expect(capturedAnimation[1]).toBe('enter');
+      }));
+
+      it('class-based animations, however it should also cancel former structural animations in the process',
+        inject(function($animate, $rootScope) {
+
+        element.addClass('green');
+
+        $animate.enter(element, parent);
+        $animate.addClass(element, 'red');
+        $animate.removeClass(element, 'green');
+        $animate.leave(element);
+
+        $rootScope.$digest();
+
+        expect(capturedAnimation[0]).toBe(element);
+        expect(capturedAnimation[1]).toBe('leave');
+
+        expect(element.parent()).toEqual(parent);
+
+        options = capturedAnimation[2];
+        expect(options.addClass).toEqual('red');
+        expect(options.removeClass).toEqual('green');
+      }));
     });
-
-    it("should query the drivers in reverse order and only use the first driver which returns something", function() {
-      var capturedDriver;
-      module(function($animateProvider, $provide) {
-        $provide.value('first', function() {
-          return function(done, index, data) {
-            capturedDriver = 'first';
-            return packageResult(true, true);
-          };
-        });
-
-        $provide.value('second', function() {
-          return function(index) {
-            capturedDriver = 'second';
-            return packageResult(true, true);
-          };
-        });
-
-        $animateProvider.drivers.push('second');
-        $animateProvider.drivers.push('first');
-      });
-
-      inject(function($animateSequence) {
-        element = angular.element('<div></div>');
-        $animateSequence(element, 'some-method');
-
-        expect(capturedDriver).toBe('first');
-      });
-    });
-  });
+  })
 });
