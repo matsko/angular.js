@@ -1276,6 +1276,43 @@ ddescribe("$animateCss", function() {
         expect(element).not.toHaveClass('natural-class-' + event + '-active');
       });
     });
+
+    they('should force the class-based values to be applied early if no transition/keyframe is detected at all',
+      ['enter', 'leave', 'move'], function(event) {
+      inject(function($animateCss, $rootElement, $document) {
+
+        ss.addRule('.blue.ng-' + event, 'transition:2s linear all;');
+
+        var element = jqLite('<div class="red"></div>');
+        $rootElement.append(element);
+        angular.element($document[0].body).append($rootElement);
+
+        var runner = $animateCss(element, {
+          addClass : 'blue',
+          removeClass : 'red',
+          event: event
+        });
+
+        runner.start();
+        expect(element).toHaveClass('ng-' + event);
+        expect(element).toHaveClass('blue');
+        expect(element).not.toHaveClass('red');
+
+        triggerAnimationStartFrame();
+        expect(element).toHaveClass('ng-' + event);
+        expect(element).toHaveClass('ng-' + event + '-active');
+        expect(element).toHaveClass('blue');
+        expect(element).not.toHaveClass('red');
+
+        browserTrigger(element, 'transitionend',
+          { timeStamp: Date.now(), elapsedTime: 2 });
+
+        expect(element).not.toHaveClass('ng-' + event);
+        expect(element).not.toHaveClass('ng-' + event + '-active');
+        expect(element).toHaveClass('blue');
+        expect(element).not.toHaveClass('red');
+      });
+    });
   });
 
   describe("options", function() {

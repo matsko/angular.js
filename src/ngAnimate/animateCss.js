@@ -207,7 +207,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         //the line below will force the browser to perform a repaint so
         //that all the animated elements within the animation frame will
         //be properly updated and drawn on screen. This is required to
-        //ensure that the the before animation is properly flushed so that
+        //ensure that the the preparation animation is properly flushed so that
         //the active state picks up from there. DO NOT REMOVE THIS LINE.
         var a = bod.offsetWidth + 1;
 
@@ -219,6 +219,24 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
     };
 
     return init;
+
+    function computeTimings(node, className, cacheKey) {
+      var timings = computeCachedCSSStyles(node, className, cacheKey, {
+        transitionDuration:      TRANSITION_PROP + DURATION_KEY,
+        transitionDelay:         TRANSITION_PROP + DELAY_KEY,
+        transitionProperty:      TRANSITION_PROP + PROPERTY_KEY,
+        animationDuration:       ANIMATION_PROP  + DURATION_KEY,
+        animationDelay:          ANIMATION_PROP  + DELAY_KEY,
+        animationIterationCount: ANIMATION_PROP  + ANIMATION_ITERATION_COUNT_KEY
+      });
+
+      timings.maxDelay = Math.max(timings.animationDelay, timings.transitionDelay);
+      timings.maxDuration = Math.max(
+          timings.animationDuration * timings.animationIterationCount,
+          timings.transitionDuration);
+
+      return timings;
+    }
 
     function init(element, options) {
       var node = element[0];
@@ -313,19 +331,9 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         temporaryStyles.push(keyframeStyle);
       }
 
-      var timings = computeCachedCSSStyles(node, fullClassName, cacheKey, {
-        transitionDuration:      TRANSITION_PROP + DURATION_KEY,
-        transitionDelay:         TRANSITION_PROP + DELAY_KEY,
-        transitionProperty:      TRANSITION_PROP + PROPERTY_KEY,
-        animationDuration:       ANIMATION_PROP  + DURATION_KEY,
-        animationDelay:          ANIMATION_PROP  + DELAY_KEY,
-        animationIterationCount: ANIMATION_PROP  + ANIMATION_ITERATION_COUNT_KEY
-      });
-
-      var maxDelay = Math.max(timings.animationDelay, timings.transitionDelay);
-      var maxDuration = Math.max(
-        (timings.animationDuration * timings.animationIterationCount) || 0,
-        (timings.transitionDuration) || 0);
+      var timings = computeTimings(node, fullClassName, cacheKey);
+      var maxDelay = timings.maxDelay;
+      var maxDuration = timings.maxDuration;
 
       var flags = {};
       flags.hasTransitions          = timings.transitionDuration > 0;
@@ -371,6 +379,34 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         }
       }
 
+      flags.transitionClassBlock = timings.transitionProperty === 'none' &&
+                                   timings.transitionDuration === 0;
+
+      // there may be a situation where a structural animation is combined together
+      // with CSS classes that need to resolve before the animation is computed.
+      // However this means that there is no explicit CSS code to block the animation
+      // from happening (by setting 0s none in the class name). If this is the case
+      // we need to apply the classes before the first rAF so we know to continue if
+      // there actually is a detected transition or keyframe animation
+      var applyClassesEarly = maxDuration === 0
+                               && structural
+                               && addRemoveClassName.length > 0
+                               && !flags.transitionClassBlock;
+
+      if (applyClassesEarly) {
+        applyClasses();
+
+        // no need to calculate this anymore
+        flags.recalculateTimingStyles = false;
+
+        fullClassName = node.className + ' ' + setupClasses;
+        cacheKey = gcsHashFn(node, fullClassName);
+
+        timings = computeTimings(node, fullClassName, cacheKey);
+        maxDelay = timings.maxDelay;
+        maxDuration = timings.maxDuration;
+      }
+
       if (maxDuration === 0 && !flags.recalculateTimingStyles) {
         close();
         return false;
@@ -392,16 +428,9 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       }
 
       if (flags.blockTransition) {
-        if (styles.from) {
-          element.css(styles.from);
-          delete styles.from;
-        }
-        blockTransitions(node, true);
+        applyStyles(true, false);
       }
-
-      if (flags.blockAnimation) {
-        blockAnimations(node, true);
-      }
+      applyBlocking(true);
 
       return {
         start: function() {
@@ -454,16 +483,16 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           node.style.removeProperty(normalizeCssProp(entry[0]));
         });
 
-        if (styles.from) {
-          element.css(styles.from);
-          delete styles.from;
-        }
+        applyClasses();
+        applyStyles(true, true);
 
-        if (styles.to) {
-          element.css(styles.to);
-          delete styles.to;
+        // if the preparation function fails then the promise is not setup
+        if (defered) {
+          rejected ? defered.reject() : defered.resolve();
         }
+      }
 
+      function applyClasses() {
         if (options.addClass) {
           element.addClass(options.addClass);
           delete options.addClass;
@@ -473,10 +502,27 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           element.removeClass(options.removeClass);
           delete options.removeClass;
         }
+      }
 
-        // if the preparation function fails then the promise is not setup
-        if (defered) {
-          rejected ? defered.reject() : defered.resolve();
+      function applyStyles(from, to) {
+        if (from && styles.from) {
+          element.css(styles.from);
+          delete styles.from;
+        }
+
+        if (to && styles.to) {
+          element.css(styles.to);
+          delete styles.to;
+        }
+      }
+
+      function applyBlocking(on) {
+        if (flags.blockTransition) {
+          blockTransitions(node, on);
+        }
+
+        if (flags.blockAnimation) {
+          blockAnimations(node, on);
         }
       }
 
@@ -524,20 +570,14 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           }
         });
 
-        return;
+        return defered.promise;
 
         function triggerAnimationStart() {
           // just incase a stagger animation kicks in when the animation
           // itself was cancelled entirely
           if (animationClosed) return;
 
-          if (flags.blockTransition) {
-            blockTransitions(node, false);
-          }
-
-          if (flags.blockAnimation) {
-            blockAnimations(node, false);
-          }
+          applyBlocking(false);
 
           angular.forEach(temporaryStyles, function(entry) {
             var key = entry[0];
@@ -545,42 +585,23 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
             node.style[key] = value;
           });
 
-          if (options.addClass) {
-            element.addClass(options.addClass);
-            delete options.addClass;
-          }
-
-          if (options.removeClass) {
-            element.removeClass(options.removeClass);
-            delete options.removeClass;
-          }
-
+          applyClasses();
           $$jqLite.addClass(element, activeClasses);
 
           if (flags.recalculateTimingStyles) {
             fullClassName = node.className + ' ' + setupClasses;
             cacheKey = gcsHashFn(node, fullClassName);
-            timings = computeCachedCSSStyles(node, fullClassName, cacheKey, {
-              transitionDuration:      TRANSITION_PROP + DURATION_KEY,
-              transitionDelay:         TRANSITION_PROP + DELAY_KEY,
-              transitionProperty:      TRANSITION_PROP + PROPERTY_KEY,
-              animationDuration:       ANIMATION_PROP  + DURATION_KEY,
-              animationDelay:          ANIMATION_PROP  + DELAY_KEY,
-              animationIterationCount: ANIMATION_PROP  + ANIMATION_ITERATION_COUNT_KEY
-            });
 
-            maxDelay = Math.max(timings.animationDelay, timings.transitionDelay);
-            maxDuration = Math.max(
-              timings.animationDuration * timings.animationIterationCount,
-              timings.transitionDuration);
+            timings = computeTimings(node, fullClassName, cacheKey);
+            maxDelay = timings.maxDelay;
+            maxDuration = timings.maxDuration;
+            maxDelayTime = maxDelay * ONE_SECOND;
+            maxDurationTime = maxDuration * ONE_SECOND;
 
             if (maxDuration === 0) {
               close();
               return;
             }
-
-            maxDelayTime = maxDelay * ONE_SECOND;
-            maxDurationTime = maxDuration * ONE_SECOND;
           }
 
           if (timings.transitionDuration) {
@@ -595,10 +616,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           element.on(events.join(' '), onAnimationProgress);
           $timeout(onAnimationExpired, CLOSING_TIME_BUFFER * maxDurationTime);
 
-          if (styles.to) {
-            element.css(styles.to);
-            delete styles.to;
-          }
+          applyStyles(false, true);
         }
 
         function onAnimationExpired() {
