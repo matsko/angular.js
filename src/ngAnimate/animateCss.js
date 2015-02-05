@@ -33,6 +33,7 @@ if (window.onanimationend === undefined && window.onwebkitanimationend !== undef
 var DURATION_KEY = 'Duration';
 var PROPERTY_KEY = 'Property';
 var DELAY_KEY = 'Delay';
+var TIMING_KEY = 'TimingFunction';
 var ANIMATION_ITERATION_COUNT_KEY = 'IterationCount';
 var ANIMATION_PLAYSTATE_KEY = 'PlayState';
 var ELAPSED_TIME_MAX_DECIMAL_PLACES = 3;
@@ -601,6 +602,23 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
             if (maxDuration === 0) {
               close();
               return;
+            }
+
+            flags.hasTransitions = timings.transitionDuration > 0;
+            flags.hasAnimations = timings.animationDuration > 0;
+          }
+
+          if (options.easing) {
+            var easeProp, easeVal = options.easing;
+            if (flags.hasTransitions) {
+              easeProp = TRANSITION_PROP + TIMING_KEY;
+              temporaryStyles.push([easeProp, easeVal]);
+              node.style[easeProp] = easeVal;
+            }
+            if (flags.hasAnimations) {
+              easeProp = ANIMATION_PROP + TIMING_KEY;
+              temporaryStyles.push([easeProp, easeVal]);
+              node.style[easeProp] = easeVal;
             }
           }
 
