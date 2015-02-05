@@ -1924,5 +1924,62 @@ ddescribe("$animateCss", function() {
         expect(element.css(prefix + 'animation-duration')).toEqual('10s');
       }));
     });
+
+    describe("[easing]", function() {
+
+      var element;
+      beforeEach(inject(function($document, $rootElement) {
+        element = jqLite('<div></div>');
+        $rootElement.append(element);
+        jqLite($document[0].body).append($rootElement);
+      }));
+
+      it("should apply easing to a transition animation if it exists", inject(function($animateCss) {
+        ss.addRule('.red', 'transition:1s linear all;');
+        var easing = 'ease-out';
+        var animator = $animateCss(element, { addClass : 'red', easing : easing });
+        animator.start();
+        triggerAnimationStartFrame();
+
+        expect(element.css('transition-timing-function')).toEqual(easing);
+      }));
+
+      it("should apply easing to a transition animation if it exists", inject(function($animateCss) {
+        ss.addRule('.red', prefix + 'animation:my_keyframe 1s;');
+        var easing = 'ease-out';
+        var animator = $animateCss(element, { addClass : 'red', easing : easing });
+        animator.start();
+        triggerAnimationStartFrame();
+
+        expect(element.css(prefix + 'animation-timing-function')).toEqual(easing);
+      }));
+
+      it("should not apply easing to transitions nor keyframes on an element animation if nothing is detected",
+        inject(function($animateCss) {
+
+        ss.addRule('.red', ';');
+        var easing = 'ease-out';
+        var animator = $animateCss(element, { addClass : 'red', easing : easing });
+        animator.start();
+        triggerAnimationStartFrame();
+
+        expect(element.css('transition-timing-function')).toEqual('');
+        expect(element.css(prefix + 'animation-timing-function')).toEqual('');
+      }));
+
+      it("should apply easing to both keyframes and transition animations if detected",
+        inject(function($animateCss) {
+
+        ss.addRule('.red', 'transition: 1s linear all;');
+        ss.addRule('.blue', prefix + 'animation:my_keyframe 1s;');
+        var easing = 'ease-out';
+        var animator = $animateCss(element, { addClass : 'red blue', easing : easing });
+        animator.start();
+        triggerAnimationStartFrame();
+
+        expect(element.css('transition-timing-function')).toEqual(easing);
+        expect(element.css(prefix + 'animation-timing-function')).toEqual(easing);
+      }));
+    });
   });
 });
