@@ -9,6 +9,63 @@ ddescribe("animations", function() {
     return isArray(element) ? element[0] : element;
   };
 
+  describe('during bootstrap', function() {
+    it('should be enabled only after the first digest is fired and the postDigest queue is empty',
+      inject(function($animate, $rootScope) {
+
+      var capturedEnabledState;
+      $rootScope.$$postDigest(function() {
+        capturedEnabledState = $animate.enabled();
+      });
+
+      expect($animate.enabled()).toBe(false);
+      $rootScope.$digest();
+
+      expect(capturedEnabledState).toBe(false);
+      expect($animate.enabled()).toBe(true);
+    }));
+
+    it('should be disabled until all pending template requests have been downloaded', function() {
+      var mockTemplateRequest = {
+        totalPendingRequests : 2
+      };
+
+      module(function($provide) {
+        $provide.value('$templateRequest', mockTemplateRequest);
+      });
+      inject(function($animate, $rootScope) {
+        expect($animate.enabled()).toBe(false);
+
+        $rootScope.$digest();
+        expect($animate.enabled()).toBe(false);
+
+        mockTemplateRequest.totalPendingRequests = 0;
+        $rootScope.$digest();
+        expect($animate.enabled()).toBe(true);
+      });
+    });
+
+    it('should stay disabled if set to be disabled even after all templates have been fully downloaded', function() {
+      var mockTemplateRequest = {
+        totalPendingRequests : 2
+      };
+
+      module(function($provide) {
+        $provide.value('$templateRequest', mockTemplateRequest);
+      });
+      inject(function($animate, $rootScope) {
+        $animate.enabled(false);
+        expect($animate.enabled()).toBe(false);
+
+        $rootScope.$digest();
+        expect($animate.enabled()).toBe(false);
+
+        mockTemplateRequest.totalPendingRequests = 0;
+        $rootScope.$digest();
+        expect($animate.enabled()).toBe(false);
+      });
+    });
+  });
   describe('$animate', function() {
     var parent, options, capturedAnimation;
 
@@ -23,7 +80,9 @@ ddescribe("animations", function() {
         return fakePromise;
       });
 
-      return function($document, $rootElement, $q) {
+      return function($document, $rootElement, $q, $animate) {
+        $animate.enabled(true);
+
         fakePromise = $q.defer().promise;
         element = jqLite('<div>element</div>');
         parent = jqLite('<div>parent</div>');
@@ -33,6 +92,58 @@ ddescribe("animations", function() {
         $rootElement.append(parent2);
         jqLite($document[0].body).append($rootElement);
       }
+    }));
+
+    it('enabled() should fully disable all animations in the application if false',
+      inject(function($animate, $rootScope) {
+
+      $animate.enabled(false);
+
+      $animate.enter(element, parent);
+
+      expect(capturedAnimation).toBeFalsy();
+      $rootScope.$digest();
+      expect(capturedAnimation).toBeFalsy();
+    }));
+
+    it('enabled() should disable all animations on the given element',
+      inject(function($animate, $rootScope) {
+
+      parent.append(element);
+
+      $animate.enabled(element, false);
+      expect($animate.enabled(element)).toBeFalsy();
+
+      $animate.addClass(element, 'red');
+      expect(capturedAnimation).toBeFalsy();
+      $rootScope.$digest();
+      expect(capturedAnimation).toBeFalsy();
+
+      $animate.enabled(element, true);
+      expect($animate.enabled(element)).toBeTruthy();
+
+      $animate.addClass(element, 'blue');
+      expect(capturedAnimation).toBeFalsy();
+      $rootScope.$digest();
+      expect(capturedAnimation).toBeTruthy();
+    }));
+
+    it('enabled() should disable all animations for a given element\'s children',
+      inject(function($animate, $rootScope) {
+
+      $animate.enabled(parent, false);
+
+      $animate.enter(element, parent);
+      expect(capturedAnimation).toBeFalsy();
+      $rootScope.$digest();
+      expect(capturedAnimation).toBeFalsy();
+
+      $animate.enabled(parent, true);
+
+      $animate.enter(element, parent);
+      expect(capturedAnimation).toBeFalsy();
+      $rootScope.$digest();
+      expect(capturedAnimation).toBeTruthy();
     }));
 
     it('enter() should issue an enter animation with the correct DOM operation', inject(function($animate, $rootScope) {
@@ -240,7 +351,8 @@ ddescribe("animations", function() {
         expect(capturedAnimation[0]).toBe(element);
         expect(capturedAnimation[1]).toBe('leave');
 
-        expect(element.parent()).toEqual(parent);
+        // $$hashKey causes comparison issues
+        expect(element.parent()[0]).toEqual(parent[0]);
 
         options = capturedAnimation[2];
         expect(options.addClass).toEqual('red');
