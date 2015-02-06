@@ -1,4 +1,4 @@
-ddescribe("$timelinePlayhead", function() {
+describe("$timelinePlayhead", function() {
 
   beforeEach(module('ngTimeline'));
 
@@ -517,8 +517,9 @@ ddescribe("$timelinePlayhead", function() {
 
       var timeline = {
         children: [
-          { start : animateFn('FIRST'), label: 'long-animation' },
-          { start : animateFn('SECOND'), position: 'long-animation' }
+          { name: '1', start : animateFn('FIRST') },
+          { label: 'long-animation' },
+          { name: '2', start : animateFn('SECOND'), position: 'long-animation' }
         ]
       };
 
@@ -590,27 +591,27 @@ ddescribe("$timelinePlayhead", function() {
 
       var defered = $q.defer();
       var timeline = {
-        children: [{
-          label: 'megaAnimation',
-          name: '1',
-          start: function() {
-            log('started-FIRST');
-            return {
-              duration : 3,
-              start : function() {
-                return defered.promise.then(function() {
-                  log('ended-FIRST');
-                });
+        children: [
+          { start: function() {
+              log('started-FIRST');
+              return {
+                duration : 3,
+                start : function() {
+                  return defered.promise.then(function() {
+                    log('ended-FIRST');
+                  });
+                }
               }
             }
+          },{
+            label : 'megaAnimation'
+          },{
+            position: 'megaAnimation-2',
+            start: function() {
+              log('started-SECOND');
+            }
           }
-        },{
-          name: '2',
-          position: 'megaAnimation-2',
-          start: function() {
-            log('started-SECOND');
-          }
-        }]
+        ]
       };
 
       player = $timelinePlayhead(timeline);
@@ -620,6 +621,41 @@ ddescribe("$timelinePlayhead", function() {
       $interval.flush(2000);
 
       expect(capturedLog).toEqual(['started-FIRST', 'started-SECOND']);
+    }));
+
+    it("should immediately resolve the first label in a timeline",
+      inject(function($q, $rootScope, $interval, $timelinePlayhead) {
+
+      var defered = $q.defer();
+      var timeline = {
+        children: [ {
+            label : 'first'
+          }, {
+            position: 'first',
+            start: function() {
+              log('started-1');
+              return {
+                duration : 3,
+                start : function() {
+                  return defered.promise.then(function() {
+                    log('ended-1');
+                  });
+                }
+              }
+            }
+          },{
+            position: 'first',
+            start: function() {
+              log('started-2');
+            }
+          }
+        ]
+      };
+
+      player = $timelinePlayhead(timeline);
+      player.start();
+
+      expect(capturedLog).toEqual(['started-1', 'started-2']);
     }));
   });
 

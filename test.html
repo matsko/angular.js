@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html ng-app="MyApp" >
+
+<head>
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/animate.css/3.2.0/animate.css" />
+  <script src="./build/angular.js?123123"></script>
+  <script src="./build/angular-animate.js"></script>
+  <style>
+    .welcome.ng-hide-remove {
+      -webkit-animation: bounceInLeft 1s;
+      animation: bounceInLeft 1s;
+    }
+    .welcome.ng-hide-add {
+      -webkit-animation: bounceOutRight 1s;
+      animation: bounceOutRight 1s;
+    }
+  </style>
+  <script>
+    (function() {
+      var angularApp = angular.module("MyApp", ['ngAnimate']);
+
+      var mainCtrl = function($scope, $timeout, $interval) {
+        $scope.welcomeBool = false;
+        $interval(function() {
+          $scope.welcomeBool = !$scope.welcomeBool;
+        }, 1500);
+      };
+      angularApp.controller("MainCtrl",
+         ["$scope", "$timeout", "$interval", mainCtrl]
+      );
+    }());
+  </script>
+</head>
+
+<body ng-controller="MainCtrl">
+  <h1 ng-show="welcomeBool" class="welcome">
+     Hello 'non-bouncy' and fading Firefox animation!
+  </h1>
+</body>
+
+</html>

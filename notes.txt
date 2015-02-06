@@ -1,0 +1,68 @@
+
+$animationControl.allow(element, method)
+
+$animationControl.queue(element, method, animationFn);
+
+$animationQueue.next();
+
+/*
+
+  child elements can only animate properly if the parent elements have fully resolved their classes
+
+  The following rules apply
+  1. if a ngClass parent dependency exists, run the parents in top-down order first. Block your current animation until the all parent animations are in stage #3
+  2. Structural animations work as normal since enter + move operations are always handled at the start
+  3. The same ordering rules apply
+
+
+  AnimationQueue
+  ... We want to ...
+
+  # enter, move, addClass, removeClass, animate
+  1. Concurrently run sibling animations (by default always)
+  2. Concurrently run child and parent animations (if ng-animate-children="on")
+  3. Wait (block) for parent animations to run and then run the current animation (if ng-animate-children="wait"
+  4. Always run the child animation if the parent is class based (current behaviour ... but wait until the first reflow (if the parent is in stage #1 or #2))
+  5. Kill child animations if the parent is a structural animation (and no attribute is set)
+
+  # leave
+  1. Concurrently run sibling animations (by default always)
+  2. Concurrently run child and parent animations (if ng-animate-children="on"), but wait for the child to finish first before running the `after` animation stage
+  3. if there is a parent leave animation then place a block on the parent animations and then only allow the parent animations to run once the current animation is complete (if ng-animate-children="wait"
+  4. If there is a parent enter animation then block the current animation and wait for parent animations to run and then run the current animation (if ng-animate-children="wait")
+  5. Always run the child animation if the parent is class based (current behaviour ... but wait until the first reflow (if the parent is in stage #1 or #2))
+  6. Kill child animations if the parent is a structural animation (and no attribute is set)
+*/
+
+{ status : 1, details }
+1 = pre-digest
+2 = post-digest
+3 = post-reflow
+
+/*
+  determine to skip the animation entirely
+  -> if the newly added class is a win for the structural child then skip the animation for yourself
+*/
+
+//before digest
+// element checks queue -> empty ->  registers itself as normal
+//                      -> active -> parent -> registers as normal
+//                                   child -> registers as normal
+
+
+// after digest
+// element checks queue -> empty -> updates flag and starts animation
+                        -> active -> parent -> stage 1 =>
+                                        self.structural? && parent.classBased? =>
+                                            expedite parent =>
+                                              postDigest for self =>
+                                                parent runs first
+                                                continue with animation
+                                        allow concurrent? -> continue with animation
+                                  -> parent -> stage >= 2 =>
+                                        allow concurrent? -> continue with animation
+                                        self.structural? -> continue with animation
+                                  -> child -> stage 1 =>
+                                        continue with animation
+                                  -> child -> stage 2 =>
+                                        continue with animation

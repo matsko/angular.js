@@ -1,3 +1,5 @@
+'use strict';
+
 ddescribe("animations", function() {
 
   var element;
@@ -66,27 +68,101 @@ ddescribe("animations", function() {
       });
     });
   });
+
+  describe('$animateRunner', function() {
+    var METHODS = ['pause', 'end', 'resume', 'cancel', 'next', 'progress'];
+
+    it('should wrap the runner around a promise object', inject(function($q, $animateRunner) {
+      var promise = $q.when(true);
+      var runner = $animateRunner(promise);
+
+      expect(runner.then).toBe(promise.then);
+      expect(runner.finally).toBe(promise.finally);
+      expect(runner.catch).toBe(promise.catch);
+    }));
+
+    it('should throw an error if a promise object is not provided', inject(function($animateRunner) {
+      function theRoofIsOnFire() {
+        var runner = $animateRunner({});
+      }
+
+      expect(theRoofIsOnFire).toThrow();
+    }));
+
+    it('should extend the existing object with new methods if provided at a later stage',
+      inject(function($q, $animateRunner) {
+
+      var promise = $q.when(true);
+      var runner = $animateRunner(promise);
+
+      var pauseFn = function() {
+        var paused = true;
+      };
+
+      expect(runner.pause).not.toBe(pauseFn);
+
+      var runner2 = $animateRunner(runner, { pause: pauseFn });
+
+      expect(runner2).toBe(runner);
+      expect(runner.pause).toBe(pauseFn);
+    }));
+
+    they('should expose a default (noop) $prop function', METHODS, function(method) {
+      inject(function($animateRunner, $q) {
+        var runner = $animateRunner($q.when(true));
+        expect(runner[method]).toBe(noop);
+      });
+    });
+
+    they('should allow an existing $prop function to be used in the runner', METHODS, function(method) {
+      inject(function($animateRunner, $q) {
+        var methodSpy = jasmine.createSpy(method);
+
+        var runnerData = $q.when(true);
+        runnerData[method] = methodSpy;
+        var runner = $animateRunner(runnerData);
+
+        expect(runner[method]).toBe(methodSpy);
+
+        runner[method]();
+        expect(methodSpy).toHaveBeenCalled();
+      });
+    });
+  });
+
   describe('$animate', function() {
-    var parent, options, capturedAnimation;
+    var parent;
+    var parent2;
+    var options;
+    var capturedAnimation;
+    var capturedAnimationHistory;
+    var overriddenAnimationRunner;
+    var defaultFakeAnimationRunner;
 
     beforeEach(module(function($provide) {
-      options = {};
+      overriddenAnimationRunner = null;
       capturedAnimation = null;
+      capturedAnimationHistory = [];
 
-      var fakePromise;
-
+      options = {};
       $provide.value('$animateSequence', function() {
-        capturedAnimation = arguments;
-        return fakePromise;
+        capturedAnimationHistory.push(capturedAnimation = arguments);
+        return overriddenAnimationRunner || defaultFakeAnimationRunner;
       });
 
-      return function($document, $rootElement, $q, $animate) {
+      return function($document, $rootElement, $q, $animate, $animateRunner) {
+        defaultFakeAnimationRunner = $animateRunner({
+          finally: noop,
+          then: function() {
+            return this;
+          }
+        });
+
         $animate.enabled(true);
 
-        fakePromise = $q.defer().promise;
-        element = jqLite('<div>element</div>');
-        parent = jqLite('<div>parent</div>');
-        parent2 = jqLite('<div>parent</div>');
+        element = jqLite('<div class="element">element</div>');
+        parent = jqLite('<div class="parent1">parent</div>');
+        parent2 = jqLite('<div class="parent2">parent</div>');
 
         $rootElement.append(parent);
         $rootElement.append(parent2);
@@ -94,57 +170,59 @@ ddescribe("animations", function() {
       }
     }));
 
-    it('enabled() should fully disable all animations in the application if false',
-      inject(function($animate, $rootScope) {
+    describe('enabled()', function() {
+      it('should fully disable all animations in the application if false',
+        inject(function($animate, $rootScope) {
 
-      $animate.enabled(false);
+        $animate.enabled(false);
 
-      $animate.enter(element, parent);
+        $animate.enter(element, parent);
 
-      expect(capturedAnimation).toBeFalsy();
-      $rootScope.$digest();
-      expect(capturedAnimation).toBeFalsy();
-    }));
+        expect(capturedAnimation).toBeFalsy();
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeFalsy();
+      }));
 
-    it('enabled() should disable all animations on the given element',
-      inject(function($animate, $rootScope) {
+      it('should disable all animations on the given element',
+        inject(function($animate, $rootScope) {
 
-      parent.append(element);
+        parent.append(element);
 
-      $animate.enabled(element, false);
-      expect($animate.enabled(element)).toBeFalsy();
+        $animate.enabled(element, false);
+        expect($animate.enabled(element)).toBeFalsy();
 
-      $animate.addClass(element, 'red');
-      expect(capturedAnimation).toBeFalsy();
-      $rootScope.$digest();
-      expect(capturedAnimation).toBeFalsy();
+        $animate.addClass(element, 'red');
+        expect(capturedAnimation).toBeFalsy();
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeFalsy();
 
-      $animate.enabled(element, true);
-      expect($animate.enabled(element)).toBeTruthy();
+        $animate.enabled(element, true);
+        expect($animate.enabled(element)).toBeTruthy();
 
-      $animate.addClass(element, 'blue');
-      expect(capturedAnimation).toBeFalsy();
-      $rootScope.$digest();
-      expect(capturedAnimation).toBeTruthy();
-    }));
+        $animate.addClass(element, 'blue');
+        expect(capturedAnimation).toBeFalsy();
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeTruthy();
+      }));
 
-    it('enabled() should disable all animations for a given element\'s children',
-      inject(function($animate, $rootScope) {
+      it('should disable all animations for a given element\'s children',
+        inject(function($animate, $rootScope) {
 
-      $animate.enabled(parent, false);
+        $animate.enabled(parent, false);
 
-      $animate.enter(element, parent);
-      expect(capturedAnimation).toBeFalsy();
-      $rootScope.$digest();
-      expect(capturedAnimation).toBeFalsy();
+        $animate.enter(element, parent);
+        expect(capturedAnimation).toBeFalsy();
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeFalsy();
 
-      $animate.enabled(parent, true);
+        $animate.enabled(parent, true);
 
-      $animate.enter(element, parent);
-      expect(capturedAnimation).toBeFalsy();
-      $rootScope.$digest();
-      expect(capturedAnimation).toBeTruthy();
-    }));
+        $animate.enter(element, parent);
+        expect(capturedAnimation).toBeFalsy();
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeTruthy();
+      }));
+    });
 
     it('enter() should issue an enter animation with the correct DOM operation', inject(function($animate, $rootScope) {
       $animate.enter(element, parent, null, options);
@@ -174,6 +252,38 @@ ddescribe("animations", function() {
       expect(parent.children().length).toBe(0);
       expect(parent2.children().length).toBe(1);
     }));
+
+    they('$prop() should insert the element adjacent to the after element if provided',
+      ['enter', 'move'], function(event) {
+
+      inject(function($animate, $rootScope) {
+        parent.append(element);
+        $animate[event](element, null, parent2, options);
+        $rootScope.$digest();
+
+        expect(capturedAnimation[1]).toBe(event);
+
+        expect(parent2.next()).not.toEqual(element);
+        capturedAnimation[3]();
+        expect(parent2.next()).toEqual(element);
+      });
+    });
+
+    they('$prop() should append to the parent incase the after element is destroyed before the DOM operation is issued',
+      ['enter', 'move'], function(event) {
+      inject(function($animate, $rootScope) {
+        $animate[event](element, parent, parent2, options);
+        $rootScope.$digest();
+
+        expect(capturedAnimation[1]).toBe(event);
+        expect(parent2.next()).not.toEqual(element);
+
+        parent2.remove();
+        capturedAnimation[3]();
+
+        expect(parent.children().length).toBe(1);
+      });
+    });
 
     it('leave() should issue a leave animation with the correct DOM operation', inject(function($animate, $rootScope) {
       parent.append(element);
@@ -236,6 +346,260 @@ ddescribe("animations", function() {
       expect(element).toHaveClass('yellow');
       expect(element).not.toHaveClass('green');
     }));
+
+    // TODO(matias): move this over into animateSequenceSpec
+    xit('should add and remove the ng-animate CSS class when the animation is active',
+      inject(function($animate, $rootScope) {
+
+      parent.append(element);
+
+      var doneFn;
+      overriddenAnimationRunner = extend(defaultFakeAnimationRunner, {
+        finally : function(fn) {
+          doneFn = fn;
+          return this;
+        }
+      });
+
+      $animate.addClass(element, 'bruce');
+
+      expect(element).not.toHaveClass('ng-animate');
+      $rootScope.$digest();
+      expect(element).toHaveClass('ng-animate');
+      doneFn();
+      expect(element).not.toHaveClass('ng-animate');
+    }));
+
+    describe('parent animations', function() {
+      it('should immediately end a pre-digest parent class-based animation if a structural child is active',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+        var child = jqLite('<div></div>');
+        $animate.addClass(parent, 'abc');
+
+        $animate.enter(child, element);
+        $rootScope.$digest();
+
+        expect(parent).toHaveClass('abc');
+      }));
+
+      it('should immediately end a parent class-based animation if a structural child is active',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+        var child = jqLite('<div></div>');
+
+        var isCancelled = false;
+        overriddenAnimationRunner = extend(defaultFakeAnimationRunner, {
+          end : function() {
+            isCancelled = true;
+          }
+        });
+
+        $animate.addClass(parent, 'abc');
+        $rootScope.$digest();
+
+        // restore the default
+        overriddenAnimationRunner = defaultFakeAnimationRunner;
+
+        $animate.enter(child, element);
+        $rootScope.$digest();
+
+        expect(isCancelled).toBe(true);
+      }));
+    });
+
+    describe('child animations', function() {
+      it('should be blocked when there is an ongoing structural parent animation occurring',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+
+        expect(capturedAnimation).toBeFalsy();
+        $animate.move(parent, parent2);
+        $rootScope.$digest();
+
+        // yes the animation is going on
+        expect(capturedAnimation[0]).toBe(parent);
+        capturedAnimation = null;
+
+        $animate.addClass(element, 'blue');
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeFalsy();
+      }));
+
+      it('should be blocked when there is an ongoing structural parent animation occurring',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+
+        expect(capturedAnimation).toBeFalsy();
+        $animate.move(parent, parent2);
+        $rootScope.$digest();
+
+        // yes the animation is going on
+        expect(capturedAnimation[0]).toBe(parent);
+        capturedAnimation = null;
+
+        $animate.addClass(element, 'blue');
+        $rootScope.$digest();
+        expect(capturedAnimation).toBeFalsy();
+      }));
+
+      it('should not be blocked when there is an ongoing class-based parent animation occurring',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+
+        expect(capturedAnimation).toBeFalsy();
+        $animate.addClass(parent, 'rogers');
+        $rootScope.$digest();
+
+        // yes the animation is going on
+        expect(capturedAnimation[0]).toBe(parent);
+        capturedAnimation = null;
+
+        $animate.addClass(element, 'blue');
+        $rootScope.$digest();
+        expect(capturedAnimation[0]).toBe(element);
+      }));
+
+      it('should skip all pre-digest queued child animations when a parent structural animation is triggered',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+
+        $animate.addClass(element, 'rumlow');
+        $animate.move(parent, null, parent2);
+
+        expect(capturedAnimation).toBeFalsy();
+        expect(capturedAnimationHistory.length).toBe(0);
+        $rootScope.$digest();
+
+        expect(capturedAnimation[0]).toBe(parent);
+        expect(capturedAnimationHistory.length).toBe(1);
+      }));
+
+      it('should end all ongoing post-digest child animations when a parent structural animation is triggered',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+
+        $animate.addClass(element, 'rumlow');
+        var isCancelled = false;
+        overriddenAnimationRunner = extend(defaultFakeAnimationRunner, {
+          end : function() {
+            isCancelled = true;
+          }
+        });
+
+        $rootScope.$digest();
+        expect(capturedAnimation[0]).toBe(element);
+        expect(isCancelled).toBe(false);
+
+        // restore the default
+        overriddenAnimationRunner = defaultFakeAnimationRunner;
+        $animate.move(parent, null, parent2);
+        $rootScope.$digest();
+        expect(capturedAnimation[0]).toBe(parent);
+
+        expect(isCancelled).toBe(true);
+      }));
+
+      it('should not end any child animations if a parent class-based animation is issued',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        parent.append(element);
+
+        var element2 = jqLite('<div>element2</div>');
+        $animate.enter(element2, parent);
+
+        var isCancelled = false;
+        overriddenAnimationRunner = extend(defaultFakeAnimationRunner, {
+          end : function() {
+            isCancelled = true;
+          }
+        });
+
+        $rootScope.$digest();
+        expect(capturedAnimation[0]).toBe(element2);
+        expect(isCancelled).toBe(false);
+
+        // restore the default
+        overriddenAnimationRunner = defaultFakeAnimationRunner;
+        $animate.addClass(parent, 'peter');
+        $rootScope.$digest();
+        expect(capturedAnimation[0]).toBe(parent);
+
+        expect(isCancelled).toBe(false);
+      }));
+
+      it('should remove the animation block on child animations once the parent animation is complete',
+        inject(function($rootScope, $rootElement, $animate) {
+
+        var doneFn;
+        overriddenAnimationRunner = extend(defaultFakeAnimationRunner, {
+          finally : function(fn) {
+            doneFn = fn;
+            return this;
+          }
+        });
+
+        parent.append(element);
+
+        $animate.enter(parent, null, parent2);
+        $rootScope.$digest();
+        expect(capturedAnimationHistory.length).toBe(1);
+
+        $animate.addClass(element, 'tony');
+        $rootScope.$digest();
+        expect(capturedAnimationHistory.length).toBe(1);
+
+        doneFn();
+
+        $animate.addClass(element, 'stark');
+        $rootScope.$digest();
+        expect(capturedAnimationHistory.length).toBe(2);
+      }));
+    });
+
+    describe('cancellations', function() {
+      it('should cancel the previous animation if a follow-up structural animation takes over',
+        inject(function($animate, $rootScope) {
+
+        var enterComplete = false;
+        overriddenAnimationRunner = extend(defaultFakeAnimationRunner, {
+          end : function() {
+            enterComplete = true;
+          }
+        });
+
+        parent.append(element);
+        $animate.move(element, parent2);
+
+        $rootScope.$digest();
+        expect(enterComplete).toBe(false);
+
+        $animate.leave(element);
+        $rootScope.$digest();
+        expect(enterComplete).toBe(true);
+      }));
+
+      it('should issue a new runner instance if a previous structural animation was cancelled',
+        inject(function($animate, $rootScope) {
+
+        parent.append(element);
+
+        var runner1 = $animate.move(element, parent2);
+        $rootScope.$digest();
+
+        var runner2 = $animate.leave(element);
+        $rootScope.$digest();
+
+        expect(runner1).not.toBe(runner2);
+      }));
+    });
 
     describe('should merge', function() {
       it('multiple class-based animations together into one before the digest passes', inject(function($animate, $rootScope) {
@@ -357,6 +721,19 @@ ddescribe("animations", function() {
         options = capturedAnimation[2];
         expect(options.addClass).toEqual('red');
         expect(options.removeClass).toEqual('green');
+      }));
+
+      it('should retain the instance to the very first runner object when multiple element-level animations are issued',
+        inject(function($animate, $rootScope) {
+
+        element.addClass('green');
+
+        var r1 = $animate.enter(element, parent);
+        var r2 = $animate.addClass(element, 'red');
+        var r3 = $animate.removeClass(element, 'green');
+
+        expect(r1).toBe(r2);
+        expect(r2).toBe(r3);
       }));
     });
   })

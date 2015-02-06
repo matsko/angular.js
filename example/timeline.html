@@ -2,50 +2,52 @@
 <html ng-app="MyApp">
 <head>
 <title>My Angular App</title>
-<style type="text/css">
-p { width:200px!important; transition:0.3s linear all!important; }
-.huge { width:200px; height:200px; line-height:200px; font-size:40px; }
-.hide { display:none; }
-.red { background:red; }
-.blue { background:blue; }
-.rotate { transform: rotate(360deg); }
-.green { background:green; }
-.orange { background: orange; }
-.yellow { background: yellow; }
-.black { background: black; color:white; transition:3s linear all; }
-p { margin:0; padding:0; font-size:20px; width:100px; height:100px; display:inline-block; text-align:center; line-height:100px; }
-
-.away {
-  transition:2s linear all;
-  transform:rotate(180deg);
-  opacity:0;
+<style>
+p {
+ width:100px;
+ height:100px;
+ margin:0;
+ border:1px solid black;
+ text-align:center;
+ display:inline-block;
+ line-height:100px;
+ font-size:50px;
+ background:white;
 }
+p.gone { opacity:0; }
+
+.scale { border-radius:50px; }
 </style>
 </head>
 <body>
 
-<ng-timeline match-class="thomas" driver="css">
-  <ng-step remove-class="hide" selector="p:nth-child(2)"></ng-step>
-
-  <ng-step add-class="red" selector="p:nth-child(1)" duration="0.3" delay="10"></ng-step>
-  <ng-step add-class="green" selector="p:nth-child(2)" duration="0.3" delay="10"></ng-step>
-  <ng-step add-class="{{ className }}" selector="p:nth-child(3)" duration="0.3"></ng-step>
-
-  <ng-step add-class="orange" selector="p:nth-child(4)" duration="0.3"></ng-step>
-  <ng-step add-class="yellow" selector="p:nth-child(5)" duration="0.3"></ng-step>
-  <ng-step add-class="huge black" selector="*"></ng-step>
-
-  <ng-step remove-class="black" selector=":nth-child(odd)"></ng-step>
-  <ng-step add-class="rotate" selector=":nth-child(even)"></ng-step>
-
+<ng-timeline match-class="boxes" on-event="addClass">
+  <ng-step add-class="red"></ng-step>
+  <ng-step selector="p"
+           to="{background:randomColor(), transform:rotate(), color:randomColor()}"
+           add-class="scale"
+           duration="0.5"
+           stagger="0.1"></ng-step>
+  <ng-step selector="p:nth-child(even)"
+           stagger="0.05"
+           add-class="gone"
+           duration="0.3"></ng-step>
+  <ng-step selector="p:nth-child(odd)"
+           stagger="0.05"
+           add-class="gone"
+           duration="0.3"></ng-step>
+  <ng-step selector="p"
+           remove-class="gone scale"
+           duration="1"
+           to="{transform:'rotate(0deg)'}"></ng-step>
+  <ng-step selector="p"
+           remove-class="gone scale"
+           duration="0.5"
+           to="{background:'white', color:'black', margin:'20px', transform:'rotate(20deg)'}"></ng-step>
 </ng-timeline>
 
-<div ng-if="bool" class="thomas">
-  <p>one</p>
-  <p>two</p>
-  <p>three</p>
-  <p>four</p>
-  <p>five</p>
+<div ng-if="bool" class="boxes">
+  <p ng-repeat="item in items">{{ item }}</div>
 </div>
 
 <button ng-click="bool=true">Start</button>
@@ -56,21 +58,33 @@ p { margin:0; padding:0; font-size:20px; width:100px; height:100px; display:inli
 <script>
 angular.module("MyApp", ['ngAnimate', 'ngTimeline'])
   .run(["$rootScope", function($rootScope) {
+
+    $rootScope.items = [];
+    var rand = 50;
+    for (var i=0;i<rand;i++) {
+      $rootScope.items.push(i);
+    }
+
     $rootScope.className = 'blue rotate';
-    $rootScope.randomColor = function() {
-      var colors = [
-        'red',
-        'teal',
-        'mint green',
-        'lime',
-        'teal',
-        'magenta',
-        'pink',
-        'tan',
-        'green'
-      ];
-      return colors[Math.floor(colors.length * Math.random())];
+    $rootScope.rotate = function() {
+      return 'rotate(' + (Math.random() < 0.5 ? -1 : 1) * Math.floor(Math.random() * 720) + 'deg)';
     };
+    $rootScope.randomColor = function() {
+      var r = Math.floor(Math.random() * 255) + 1;
+      var g = Math.floor(Math.random() * 255) + 1;
+      var b = Math.floor(Math.random() * 255) + 1;
+      var color = '#' + [
+        pad(r.toString(16)),
+        pad(g.toString(16)),
+        pad(b.toString(16))
+      ].join('');
+
+      return color;
+    };
+
+    function pad(val) {
+      return val.length == 1 ? '0' + val : val;
+    }
   }])
 </script>
 </body>

@@ -8,6 +8,18 @@ function gcd(a, b) {
   return gcd(b, a % b);
 };
 
+/*
+ * if a timeline as a position
+ *    position > now ? then handle later : handle now
+ * if step
+ *     if step has a position then
+ *         position > now ? then handle later : handle now
+ *     else
+ *         chain for later
+ * if label
+ *   if label has position; return;
+ *   chain based on position (or the former item)
+ */
 function findHighestCommonPositionFactor(timeline) {
   var time = 0;
   var entry;
@@ -213,38 +225,68 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
         var node = queue.pop();
         if (!node || !started) return;
 
-        if (node.label) {
+        var isLabelNode = !!node.label;
+        if (isLabelNode) {
           labels[node.label] = node;
         }
 
         if (node.position) {
           var position = node.position.toString();
-          isFutureLabel(position)
-              ? placeWaitOnLabel(position, node)
-              : walkTree(node);
+          if (isFutureLabel(position)) {
+            placeWaitOnLabel(position, node)
+          } else {
+            walkTree(node);
+          }
         } else {
           node.count = 0;
           node.total = 0;
+
           var children = node.children || [];
-          if (children.length) {
+          var length = children.length;
+
+          if (length) {
             // timeline nodes are allowed to have an optional
             // start function, but steps are not
             node.start = node.start || noop;
           }
-          for (var i=children.length-1;i>=0;i--) {
-            var child = children[i];
-            if (child.position) {
-              walkTree(child);
-            } else {
-              queue.push(child);
-            }
-            child.parent = node;
-            node.total++;
-            total++
-          };
 
-          var val = trigger(node);
-          isPromiseLike(val) ? val.then(next) : next();
+          // add the position-based steps in ascending order
+          for (var i=0;i<length;i++) {
+            var child = children[i];
+            if (angular.isUndefined(child.position)) continue;
+            walkTree(child);
+          }
+
+          // add the sequential-based steps in reverse order to fit
+          // the operation of the stack data structure
+          for (var i=length-1;i>=0;i--) {
+            var child = children[i];
+            child.parent = node;
+
+            if (angular.isDefined(child.position)) continue;
+
+            if (child.label && !child.children) {
+              if (i > 0) {
+                children[i-i].label = child.label;
+              } else {
+                child.labelNode = true;
+              }
+            }
+
+            queue.push(child);
+            child.parent = node;
+          }
+
+          node.total += length;
+          total += length;
+
+          if (node.labelNode) {
+            tick(node.label);
+            next();
+          } else {
+            var val = trigger(node);
+            isPromiseLike(val) ? val.then(next) : next();
+          }
         }
       }
     }
