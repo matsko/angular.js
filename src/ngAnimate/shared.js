@@ -14,11 +14,7 @@ function packageStyles(options) {
   return styles;
 }
 
-function yieldWith(value, done) {
-  return { value : value, done : done };
-}
-
-function fixClasses(classes, fix, isPrefix) {
+function pendClasses(classes, fix, isPrefix) {
   var className = '';
   classes = isArray(classes)
       ? classes

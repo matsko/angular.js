@@ -1,15 +1,11 @@
 'use strict';
 
-ddescribe("animations", function() {
+describe("animations", function() {
 
   var element;
   afterEach(function() {
     dealoc(element);
   });
-
-  var getNode = function(element) {
-    return isArray(element) ? element[0] : element;
-  };
 
   describe('during bootstrap', function() {
     it('should be enabled only after the first digest is fired and the postDigest queue is empty',
@@ -145,7 +141,7 @@ ddescribe("animations", function() {
       capturedAnimationHistory = [];
 
       options = {};
-      $provide.value('$animateSequence', function() {
+      $provide.value('$animation', function() {
         capturedAnimationHistory.push(capturedAnimation = arguments);
         return overriddenAnimationRunner || defaultFakeAnimationRunner;
       });
@@ -345,29 +341,6 @@ ddescribe("animations", function() {
       capturedAnimation[3]();
       expect(element).toHaveClass('yellow');
       expect(element).not.toHaveClass('green');
-    }));
-
-    // TODO(matias): move this over into animateSequenceSpec
-    xit('should add and remove the ng-animate CSS class when the animation is active',
-      inject(function($animate, $rootScope) {
-
-      parent.append(element);
-
-      var doneFn;
-      overriddenAnimationRunner = extend(defaultFakeAnimationRunner, {
-        finally : function(fn) {
-          doneFn = fn;
-          return this;
-        }
-      });
-
-      $animate.addClass(element, 'bruce');
-
-      expect(element).not.toHaveClass('ng-animate');
-      $rootScope.$digest();
-      expect(element).toHaveClass('ng-animate');
-      doneFn();
-      expect(element).not.toHaveClass('ng-animate');
     }));
 
     describe('parent animations', function() {

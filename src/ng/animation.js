@@ -1,0 +1,222 @@
+var $AnimationProvider = [function() {
+  var NG_ANIMATE_CLASSNAME = 'ng-animate';
+  var NG_ANIMATE_REF_ATTR = 'ng-animate-ref';
+
+  var $$drivers = this.drivers = [];
+
+  this.$get = ['$$qAnimate', '$injector', '$animateRunner', '$rootScope',
+       function($$qAnimate,   $injector,   $animateRunner,   $rootScope) {
+
+    var animationQueue = [];
+
+    return function(element, event, options, domOperation) {
+      options = options || {};
+      var _domOperation = domOperation || noop;
+      var domOperationCalled = false;
+      options.domOperation = domOperation = function() {
+        if (!domOperationCalled) {
+          _domOperation();
+          domOperationCalled = true;
+        }
+      }
+
+      var tempClassName = options.tempClassName;
+
+      var defered = $$qAnimate.defer();
+      var runner = $animateRunner(defered.promise);
+      var classes = mergeClasses(element.attr('class'), mergeClasses(options.addClass, options.removeClass));
+      var driver = getDriver(element, event, classes);
+      if (!driver) {
+        close();
+        return runner;
+      }
+
+      animationQueue.push({
+        element: element,
+        driver: driver,
+        classes: classes,
+        event: event,
+        start: start,
+        close: close,
+        options: options,
+        domOperation: domOperation
+      });
+
+      // we only want there to be one function called within the post digest
+      // block. This way we can group animations for all the animations that
+      // were apart of the same postDigest flush call.
+      if (animationQueue.length > 1) return runner;
+
+      $rootScope.$$postDigest(function() {
+        var animations = groupAnimations(animationQueue);
+
+        // now any future animations will be in another postDigest
+        animationQueue.length = 0;
+
+        forEach(animations, function(animationEntry) {
+          var operation = animationEntry.driver(animationEntry);
+          if (!operation) {
+            animationEntry.close();
+          } else {
+            animationEntry.start();
+
+            // some drivers may have a two step starting operation or
+            // they might just return a promise as soon as they're called
+            var animationRunner = isPromiseLike(operation)
+                  ? operation
+                  : (operation.start || operation)();
+            animationRunner.then(function() {
+                animationEntry.close();
+              }, function() {
+                animationEntry.close(true);
+              });
+          }
+        });
+      });
+
+      return runner;
+
+      function getAnchorNodes(node) {
+        var SELECTOR = '[' + NG_ANIMATE_REF_ATTR + ']';
+        return node.hasAttribute(NG_ANIMATE_REF_ATTR)
+              ? [node]
+              : node.querySelectorAll(SELECTOR);
+      }
+
+      function groupAnimations(animations) {
+        var preparedAnimations = [];
+        var refLookup = {};
+        forEach(animations, function(animation, index) {
+          var node = animation.element[0];
+          var event = animation.event;
+          var enterOrMove = ['enter', 'move'].indexOf(event) >= 0;
+          var structural = enterOrMove || event === 'leave';
+          var anchorNodes = structural ? getAnchorNodes(node) : [];
+
+          if (anchorNodes.length) {
+            var direction = enterOrMove ? 'to' : 'from';
+
+            forEach(anchorNodes, function(anchor) {
+              var key = anchor.getAttribute(NG_ANIMATE_REF_ATTR);
+              refLookup[key] = refLookup[key] || {};
+              refLookup[key][direction] = {
+                animationID: index,
+                element: angular.element(anchor)
+              };
+            });
+          } else {
+            preparedAnimations.push(animation);
+          }
+        });
+
+        var usedIndicesLookup = {};
+        var anchorGroups = {};
+        forEach(refLookup, function(operations, key) {
+          var from = operations.from;
+          var to = operations.to;
+
+          if (!from || !to) {
+            // only one of these is set therefore we can't have an
+            // anchor animation since all three pieces are required
+            var index = from ? from.animationID : to.animationID;
+            var indexKey = index.toString();
+            if (!usedIndicesLookup[indexKey]) {
+              usedIndicesLookup[indexKey] = true;
+              preparedAnimations.push(animations[index]);
+            }
+            return;
+          }
+
+          var fromAnimation = animations[from.animationID];
+          var toAnimation = animations[to.animationID];
+          var lookupKey = from.animationID.toString();
+          if (!anchorGroups[lookupKey]) {
+            var group = anchorGroups[lookupKey] = {
+              start: function() {
+                fromAnimation.start();
+                toAnimation.start();
+              },
+              close: function() {
+                fromAnimation.close();
+                toAnimation.close();
+              },
+              classes: cssClassesIntersection(fromAnimation.classes, toAnimation.classes),
+              driver: fromAnimation.driver,
+              from: fromAnimation,
+              to: toAnimation,
+              anchors: []
+            }
+
+            // the anchor animations require that the from and to elements both have atleast
+            // one shared CSS class which effictively marries the two elements together to use
+            // the same animation driver and to properly sequence the anchor animation.
+            if (group.classes.length) {
+              preparedAnimations.push(group);
+            } else {
+              preparedAnimations.push(fromAnimation);
+              preparedAnimations.push(toAnimation);
+            }
+          }
+
+          anchorGroups[lookupKey].anchors.push({
+            'out' : from.element, 'in' : to.element
+          });
+        });
+
+        return preparedAnimations;
+      }
+
+      function cssClassesIntersection(a,b) {
+        a = a.split(' ');
+        b = b.split(' ');
+        var matches = [];
+
+        for (var i = 0; i < a.length; i++) {
+          for (var j = 0; j < b.length; j++) {
+            var aa = a[i];
+            if (aa.substring(0,3) !== 'ng-' && aa === b[j]) {
+              matches.push(aa);
+            }
+          }
+        }
+
+        return matches.join(' ');
+      }
+
+      function getDriver(element, event, classes) {
+        // we loop in reverse order since the more general drivers (like CSS and JS)
+        // may attempt more elements, but custom drivers are more particular
+        for (var i = $$drivers.length - 1; i >= 0; i--) {
+          var driverName = $$drivers[i];
+          if (!$injector.has(driverName)) continue;
+
+          var factory = $injector.get(driverName);
+          var driver = factory(element, event, classes);
+          if (driver) {
+            return driver;
+          }
+        }
+      }
+
+      function start() {
+        element.addClass(NG_ANIMATE_CLASSNAME);
+        if (tempClassName) {
+          element.addClass(tempClassName);
+        }
+      }
+
+      function close(failure) {
+        if (!domOperationCalled) {
+          domOperation();
+        }
+
+        if (tempClassName) {
+          element.removeClass(tempClassName);
+        }
+
+        element.removeClass(NG_ANIMATE_CLASSNAME);
+        failure ? defered.reject() : defered.resolve();
+      }
+    };
+  }];
+}];

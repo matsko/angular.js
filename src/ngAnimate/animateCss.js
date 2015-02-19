@@ -178,7 +178,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         stagger = gcsStaggerLookup.get(staggerCacheKey);
 
         if (!stagger) {
-          var staggerClassName = fixClasses(className, '-stagger');
+          var staggerClassName = pendClasses(className, '-stagger');
 
           $$jqLite.addClass(node, staggerClassName);
 
@@ -264,23 +264,23 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       var addRemoveClassName = '';
 
       if (structural) {
-        structuralClassName = fixClasses(method, 'ng-', true);
+        structuralClassName = pendClasses(method, 'ng-', true);
       }
 
       if (options.addClass) {
-        addRemoveClassName += fixClasses(options.addClass, '-add');
+        addRemoveClassName += pendClasses(options.addClass, '-add');
       }
 
       if (options.removeClass) {
         if (addRemoveClassName.length) {
           addRemoveClassName += ' ';
         }
-        addRemoveClassName += fixClasses(options.removeClass, '-remove');
+        addRemoveClassName += pendClasses(options.removeClass, '-remove');
       }
 
       var setupClasses = [structuralClassName, addRemoveClassName].join(' ').trim();
       var fullClassName =  classes + ' ' + setupClasses;
-      var activeClasses = fixClasses(setupClasses, '-active');
+      var activeClasses = pendClasses(setupClasses, '-active');
       var hasStyles = styles.to && Object.keys(styles.to).length > 0;
 
       // there is no way we can trigger an animation since no styles or
@@ -367,7 +367,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       }
 
       if (flags.applyTransitionDelay || flags.applyAnimationDelay) {
-        maxDelay = options.delay >= 0 ? parseFloat(options.delay) : maxDelay;
+        maxDelay = typeof options.delay !== "boolean" && options.delay >= 0 ? parseFloat(options.delay) : maxDelay;
 
         if (flags.applyTransitionDelay) {
           timings.transitionDelay = maxDelay;
@@ -632,7 +632,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
 
           startTime = Date.now();
           element.on(events.join(' '), onAnimationProgress);
-          $timeout(onAnimationExpired, CLOSING_TIME_BUFFER * maxDurationTime);
+          $timeout(onAnimationExpired, maxDelayTime + CLOSING_TIME_BUFFER * maxDurationTime);
 
           applyStyles(false, true);
         }
