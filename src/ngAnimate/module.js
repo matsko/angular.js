@@ -2,5 +2,5 @@
 
 angular.module('ngAnimate', [])
   .provider('$animateCss', $AnimateCssProvider)
-  .provider('ngAnimateJsDriver', $NgAnimateJsDriverProvider)
-  .provider('ngAnimateCssDriver', $NgAnimateCssDriverProvider);
+  .provider('$$animateJsDriver', $NgAnimateJsDriverProvider)
+  .provider('$$animateCssDriver', $NgAnimateCssDriverProvider);

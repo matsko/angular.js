@@ -1,6 +1,6 @@
 'use strict';
 
-var $NgStepDirective = ['$$qAnimate', '$rootScope', function($$qAnimate, $rootScope) {
+var $NgStepDirective = ['$qRaf', '$rootScope', function($qRaf, $rootScope) {
   return {
     require: 'ngStep',
     controller: 'ngTimelineItemController',
@@ -23,7 +23,7 @@ var $NgStepDirective = ['$$qAnimate', '$rootScope', function($$qAnimate, $rootSc
           }
         });
 
-        return $$qAnimate.all(promises);
+        return $qRaf.all(promises);
       }
     }
   };

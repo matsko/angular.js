@@ -1,6 +1,6 @@
 'use strict';
 
-describe("$animateCss", function() {
+ddescribe("$animateCss", function() {
 
   beforeEach(module('ngAnimate'));
 
@@ -740,6 +740,33 @@ describe("$animateCss", function() {
         }
       }));
 
+      it("should apply the closing timeout ontop of the stagger timeout with an added delay",
+        inject(function($animateCss, $document, $rootElement, $timeout, $browser) {
+
+        angular.element($document[0].body).append($rootElement);
+
+        ss.addRule('.ng-enter-stagger', 'transition-delay:1s;');
+        ss.addRule('.ng-enter', 'transition:10s linear all; transition-delay:50s;');
+
+        var elements = [];
+        for (var i=0;i<5;i++) {
+          var element = jqLite('<div></div>');
+          elements.push(element);
+          $rootElement.append(element);
+
+          $animateCss(element, { event: 'enter' }).start();
+          triggerAnimationStartFrame();
+        }
+
+        for (var i=1;i<2;i++) {
+          var elm = elements[i];
+          expect(elm).toHaveClass('ng-enter');
+          $timeout.flush(1000);
+          $timeout.flush(65000);
+          expect(elm).not.toHaveClass('ng-enter');
+        }
+      }));
+
       it("should issue a stagger if a stagger value is provided in the options",
         inject(function($animateCss, $document, $rootElement, $timeout) {
 
@@ -823,6 +850,29 @@ describe("$animateCss", function() {
         expect(element).toHaveClass('ng-enter-active');
 
         $timeout.flush(15000);
+
+        expect(element).not.toHaveClass('ng-enter');
+        expect(element).not.toHaveClass('ng-enter-active');
+      }));
+
+      it("should close off the animation after 150% of the animation time has passed and consider the detected delay value",
+        inject(function($animateCss, $document, $rootElement, $timeout) {
+
+        ss.addRule('.ng-enter', 'transition:10s linear all; transition-delay:30s;');
+
+        var element = jqLite('<div></div>');
+        $rootElement.append(element);
+        angular.element($document[0].body).append($rootElement);
+
+        var animator = $animateCss(element, { event: 'enter' });
+        animator.start();
+        triggerAnimationStartFrame();
+
+
+        expect(element).toHaveClass('ng-enter');
+        expect(element).toHaveClass('ng-enter-active');
+
+        $timeout.flush(45000);
 
         expect(element).not.toHaveClass('ng-enter');
         expect(element).not.toHaveClass('ng-enter-active');

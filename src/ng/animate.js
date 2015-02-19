@@ -1,19 +1,18 @@
 'use strict';
 
-/*
- * enter/move/leave
- * addClass/removeClass/setClass
- *
- * merge into one animation
- * then disable the animation (blanket)
- *
- * call the driver with the combined animations
- */
-
 var $animateMinErr = minErr('ngAnimate');
-
 var NG_ANIMATE_ATTR_NAME = 'data-ng-animate';
 var ELEMENT_NODE = 1;
+var COMMENT_NODE = 8;
+
+function mergeClasses(a,b) {
+  if (!a && !b) return '';
+  if (!a) return b;
+  if (!b) return a;
+  if (isArray(a)) a = a.join(' ');
+  if (isArray(b)) b = b.join(' ');
+  return a + ' ' + b;
+}
 
 function $AnimateRunnerProvider() {
   this.$get = [function() {
@@ -36,16 +35,6 @@ function $AnimateRunnerProvider() {
 }
 
 var $AnimateProvider = ['$provide', function($provide) {
-  this.drivers = [];
-  this.$$selectors = [];
-  this.register = function(name, factory) {
-    var key = name + '-animation';
-    if (name && name.charAt(0) != '.') throw $animateMinErr('notcsel',
-        "Expecting class selector starting with '.' got '{0}'.", name);
-    this.$$selectors[name.substr(1)] = key;
-    $provide.factory(key, factory);
-  };
-
   var animationsEnabled = true;
 
   this.$get = ['$$animateQueue', '$$jqLite', function($$animateQueue, $$jqLite) {
@@ -62,18 +51,34 @@ var $AnimateProvider = ['$provide', function($provide) {
       };
     }
 
+    function appendCommentNodes(element, parent, after) {
+      var elementNode = element;
+      if (element.length > 1) {
+        forEach(element, function(node) {
+          if (node.nodeType === COMMENT_NODE) {
+            after ? after.after(node) : parent.append(node);
+          } else {
+            elementNode = angular.element(node);
+          }
+        });
+      }
+      return elementNode;
+    }
+
     return {
       enabled : function() {
         return $$animateQueue.enabled.apply($$animateQueue, arguments);
       },
 
       enter : function(element, parent, after, options) {
+        element = appendCommentNodes(element, parent, after);
         parent = parent || after.parent();
         return $$animateQueue.push(element, parent, 'enter', options,
           domInsertFactory(element, parent, after));
       },
 
       move : function(element, parent, after, options) {
+        element = appendCommentNodes(element, parent, after);
         parent = parent || after.parent();
         return $$animateQueue.push(element, parent, 'move', options,
           domInsertFactory(element, parent, after));
@@ -89,7 +94,7 @@ var $AnimateProvider = ['$provide', function($provide) {
 
       addClass : function(element, className, options) {
         options = options || {};
-        options.addClass = className;
+        options.addClass = mergeClasses(options.addclass, className);
         return $$animateQueue.push(element, element.parent(), 'addClass', options, domAddClass);
 
         function domAddClass() {
@@ -99,7 +104,7 @@ var $AnimateProvider = ['$provide', function($provide) {
 
       removeClass : function(element, className, options) {
         options = options || {};
-        options.removeClass = className;
+        options.removeClass = mergeClasses(options.removeClass, className);
         return $$animateQueue.push(element, element.parent(), 'removeClass', options, domRemoveClass);
 
         function domRemoveClass() {
@@ -109,8 +114,8 @@ var $AnimateProvider = ['$provide', function($provide) {
 
       setClass : function(element, add, remove, options) {
         options = options || {};
-        options.addClass = add;
-        options.removeClass = remove;
+        options.addClass = mergeClasses(options.addClass, add);
+        options.removeClass = mergeClasses(options.removeClass, remove);
         return $$animateQueue.push(element, element.parent(), 'setClass', options, domSetClass);
 
         function domSetClass() {
@@ -131,8 +136,7 @@ function $$AnimateQueueProvider() {
   var rules = this.rules = {
     skip : [],
     cancel : [],
-    join : [],
-    wait : []
+    join : []
   };
 
   function isAllowed(ruleType, element, currentAnimation, previousAnimation) {
@@ -175,8 +179,8 @@ function $$AnimateQueueProvider() {
     return currentAnimation.state === RUNNING_STATE && newAnimation.structural;
   });
 
-  this.$get = ['$$qAnimate', '$rootScope', '$rootElement', '$document', '$animateSequence', '$animateRunner', '$templateRequest',
-       function($$qAnimate,   $rootScope,   $rootElement,   $document,   $animateSequence,   $animateRunner,   $templateRequest) {
+  this.$get = ['$qRaf', '$rootScope', '$rootElement', '$document', '$animation', '$animateRunner', '$templateRequest',
+       function($qRaf,   $rootScope,   $rootElement,   $document,   $animation,   $animateRunner,   $templateRequest) {
 
     var animationsEnabled = null;
     var activeAnimationsLookup = new HashMap();
@@ -274,7 +278,7 @@ function $$AnimateQueueProvider() {
 
       // we create a fake runner with a working promise.
       // These methods will become available after the digest has passed
-      var defered = $$qAnimate.defer();
+      var defered = $qRaf.defer();
       var runner = $animateRunner(defered.promise);
 
       // there are situations where a directive issues an animation for
@@ -337,11 +341,6 @@ function $$AnimateQueueProvider() {
           existingAnimation.options = mergeAnimationOptions(element, existingAnimation.options, options);
           existingAnimation.domOperation = mergeAnimationDomOperations(existingAnimation.domOperation, domOperation);
           return existingAnimation.runner;
-        }
-
-        var waitAnimationFlag = isAllowed('wait', element, newAnimation, existingAnimation);
-        if (waitAnimationFlag) {
-          // wait until the next animation is ready
         }
 
         var cancelAnimationFlag = isAllowed('cancel', element, newAnimation, existingAnimation);
@@ -419,11 +418,11 @@ function $$AnimateQueueProvider() {
         closeParentClassBasedAnimations(details.parent);
 
         markElementAnimationState(element, RUNNING_STATE);
-        var realRunner = $animateSequence(element, method, details.options, details.domOperation);
+        var realRunner = $animation(element, method, details.options, details.domOperation);
         realRunner.then(
             function() { defered.resolve(); },
             function() { defered.reject(); }
-          ).finally(function() {
+          )['finally'](function() {
             clearElementAnimationState(element);
           });
 
@@ -642,114 +641,4 @@ function $$AnimateQueueProvider() {
       activeAnimationsLookup.put(element, newValue);
     }
   }];
-}
-
-var $AnimateSequenceProvider = ['$animateProvider', function($animateProvider) {
-  var NG_ANIMATE_CLASSNAME = 'ng-animate';
-
-  this.$get = ['$$qAnimate', '$injector', '$animateRunner', '$timeline', '$timelinePlayhead',
-       function($$qAnimate,   $injector,   $animateRunner,   $timeline,   $timelinePlayhead) {
-
-    var timelineQueue = {};
-
-    return function(element, method, options, domOperation) {
-      options = options || {};
-      var _domOperation = domOperation || noop;
-      var domOperationCalled = false;
-      options.domOperation = domOperation = function() {
-        if (!domOperationCalled) {
-          _domOperation();
-          domOperationCalled = true;
-        }
-      }
-
-      var defered = $$qAnimate.defer();
-      var runner = $animateRunner(defered.promise);
-
-      var player, driver = getDriver(element, method, domOperation, options);
-      if (driver) {
-        var tl = $timeline.query(element);
-        if (tl) {
-          if (tl.evented && tl.events.indexOf(method) >= 0) {
-            scheduleEventedTimeline(tl);
-            return runner;
-          }
-
-          player = tl(element, driver, options);
-        } else {
-          var tree = driver.createDefaultTimeline(element, method, domOperation, options);
-          player = $timelinePlayhead(tree);
-        }
-
-        start();
-      } else {
-        close();
-      }
-
-      function scheduleEventedTimeline(timeline) {
-        timeline.setPhase(method, element, driver, {
-          before : function() {
-            if (method == 'enter' || method == 'move') {
-              domOperation();
-            }
-          },
-          after : function() {
-            close(true);
-          }
-        });
-
-        if (timelineQueue[timeline.name]) return;
-
-        timelineQueue[timeline.name] = timeline;
-        $rootScope.$$postDigest(function() {
-          var _timelineQueue = timelineQueue;
-          timelineQueue = [];
-
-          forEach(_timelineQueue, function(timeline) {
-            timeline().start();
-          });
-        });
-      }
-
-      return runner;
-
-      function getDriver(element, method, domOperation, options) {
-        var drivers = $animateProvider.drivers;
-
-        // we loop in reverse order since the more general drivers (like CSS and JS)
-        // may attempt more elements, but custom drivers are more particular
-        for (var i = drivers.length - 1; i >= 0; i--) {
-          var driverName = drivers[i--];
-          if (!$injector.has(driverName)) continue;
-
-          var factory = $injector.get(driverName);
-          var driver = factory(element, method, domOperation, options);
-          if (driver) {
-            return driver;
-          }
-        }
-      }
-
-      function start() {
-        element.addClass(NG_ANIMATE_CLASSNAME);
-
-        var playerRunner = player.start();
-        $animateRunner(runner, playerRunner);
-
-        playerRunner.then(function() {
-          close(true);
-        }, function() {
-          close(false);
-        });
-      }
-
-      function close(success) {
-        if (!domOperationCalled) {
-          domOperation();
-        }
-        element.removeClass(NG_ANIMATE_CLASSNAME);
-        success ? defered.resolve() : defered.reject();
-      }
-    };
-  }];
-}];
+};
