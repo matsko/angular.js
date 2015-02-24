@@ -4,8 +4,17 @@ var $AnimationProvider = [function() {
 
   var $$drivers = this.drivers = [];
 
-  this.$get = ['$$qAnimate', '$injector', '$animateRunner', '$rootScope',
-       function($$qAnimate,   $injector,   $animateRunner,   $rootScope) {
+  this.$$registeredAnimations = [];
+  this.register = function(name, factory) {
+    var key = name + '-animation';
+    if (name && name.charAt(0) != '.') throw $animateMinErr('notcsel',
+        "Expecting class selector starting with '.' got '{0}'.", name);
+    this.$$registeredAnimations[name.substr(1)] = key;
+    $provide.factory(key, factory);
+  };
+
+  this.$get = ['$qRaf', '$injector', '$animateRunner', '$rootScope',
+       function($qRaf,   $injector,   $animateRunner,   $rootScope) {
 
     var animationQueue = [];
 
@@ -22,7 +31,7 @@ var $AnimationProvider = [function() {
 
       var tempClassName = options.tempClassName;
 
-      var defered = $$qAnimate.defer();
+      var defered = $qRaf.defer();
       var runner = $animateRunner(defered.promise);
       var classes = mergeClasses(element.attr('class'), mergeClasses(options.addClass, options.removeClass));
       var driver = getDriver(element, event, classes);

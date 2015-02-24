@@ -5,8 +5,8 @@ var $NgAnimateCssDriverProvider = ['$animationProvider', function($animationProv
   var NG_ANIMATE_ANCHOR_CLASS_NAME = 'ng-animate-anchor';
   var NG_ANIMATE_ANCHOR_SUFFIX = '-anchor';
 
-  this.$get = ['$$qAnimate', '$animateCss', '$rootScope', '$animateRunner', '$rootElement', '$document',
-       function($$qAnimate,   $animateCss,   $rootScope,   $animateRunner,   $rootElement,   $document) {
+  this.$get = ['$qRaf', '$animateCss', '$rootScope', '$animateRunner', '$rootElement', '$document',
+       function($qRaf,   $animateCss,   $rootScope,   $animateRunner,   $rootElement,   $document) {
 
     var bodyNode = $document[0].body;
     var rootNode = $rootElement[0];
@@ -142,7 +142,7 @@ var $NgAnimateCssDriverProvider = ['$animationProvider', function($animationProv
             animations.push(animation.start());
           });
 
-          return $$qAnimate.all(animations);
+          return $qRaf.all(animations);
         }
       }
     }

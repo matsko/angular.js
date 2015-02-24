@@ -36,7 +36,7 @@ function findHighestCommonPositionFactor(timeline) {
   return time;
 }
 
-var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnimate) {
+var $TimelinePlayhead = ['$interval', '$qRaf', function($interval, $qRaf) {
   var MIN_INTERVAL_TIME = 10;
 
   return function(timeline) {
@@ -78,7 +78,7 @@ var $TimelinePlayhead = ['$interval', '$$qAnimate', function($interval, $$qAnima
     function start() {
       if (started) return;
 
-      defered = $$qAnimate.defer();
+      defered = $qRaf.defer();
       time = 0;
       count = 0;
       total = 1; //the root node is the first

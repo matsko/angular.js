@@ -142,8 +142,8 @@ function Lookup() {
 var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
   var gcsLookup = new Lookup();
   var gcsStaggerLookup = new Lookup();
-  this.$get = ['$window', '$$jqLite', '$$qAnimate', '$timeout', '$$rAF', '$animateRunner', '$document',
-       function($window,   $$jqLite,   $$qAnimate,   $timeout,   $$rAF,   $animateRunner,   $document) {
+  this.$get = ['$window', '$$jqLite', '$qRaf', '$timeout', '$$rAF', '$animateRunner', '$document',
+       function($window,   $$jqLite,   $qRaf,   $timeout,   $$rAF,   $animateRunner,   $document) {
 
     var parentCounter = 0;
     function gcsHashFn(node, extraClasses) {
@@ -199,7 +199,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         cancelLastRafRequest(); //cancels the request
       }
       if (!rafDefered) {
-        rafDefered = $$qAnimate.defer();
+        rafDefered = $qRaf.defer();
       }
       cancelLastRafRequest = $$rAF(function() {
         gcsLookup.flush();
@@ -437,7 +437,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         start: function() {
           if (animationClosed) return;
 
-          defered = $$qAnimate.defer();
+          defered = $qRaf.defer();
           waitUntilQuiet().then(function() {
             start(defered);
           });

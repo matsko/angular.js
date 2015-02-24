@@ -35,15 +35,6 @@ function $AnimateRunnerProvider() {
 }
 
 var $AnimateProvider = ['$provide', function($provide) {
-  this.$$selectors = [];
-  this.register = function(name, factory) {
-    var key = name + '-animation';
-    if (name && name.charAt(0) != '.') throw $animateMinErr('notcsel',
-        "Expecting class selector starting with '.' got '{0}'.", name);
-    this.$$selectors[name.substr(1)] = key;
-    $provide.factory(key, factory);
-  };
-
   var animationsEnabled = true;
 
   this.$get = ['$$animateQueue', '$$jqLite', function($$animateQueue, $$jqLite) {
@@ -188,8 +179,8 @@ function $$AnimateQueueProvider() {
     return currentAnimation.state === RUNNING_STATE && newAnimation.structural;
   });
 
-  this.$get = ['$$qAnimate', '$rootScope', '$rootElement', '$document', '$animation', '$animateRunner', '$templateRequest',
-       function($$qAnimate,   $rootScope,   $rootElement,   $document,   $animation,   $animateRunner,   $templateRequest) {
+  this.$get = ['$qRaf', '$rootScope', '$rootElement', '$document', '$animation', '$animateRunner', '$templateRequest',
+       function($qRaf,   $rootScope,   $rootElement,   $document,   $animation,   $animateRunner,   $templateRequest) {
 
     var animationsEnabled = null;
     var activeAnimationsLookup = new HashMap();
@@ -287,7 +278,7 @@ function $$AnimateQueueProvider() {
 
       // we create a fake runner with a working promise.
       // These methods will become available after the digest has passed
-      var defered = $$qAnimate.defer();
+      var defered = $qRaf.defer();
       var runner = $animateRunner(defered.promise);
 
       // there are situations where a directive issues an animation for

@@ -9,7 +9,7 @@ var $TimelineProvider = [function() {
 }];
 
 var $TimelinePlayheadProvider = [function() {
-  this.$get = ['$$qAnimate', function($$qAnimate) {
+  this.$get = ['$qRaf', function($qRaf) {
     return function(timeline) {
       var defered;
       var queue = !isArray(timeline)
@@ -27,7 +27,7 @@ var $TimelinePlayheadProvider = [function() {
       };
 
       function start() {
-        defered = $$qAnimate.defer();
+        defered = $qRaf.defer();
         next();
         return defered.promise;
       }

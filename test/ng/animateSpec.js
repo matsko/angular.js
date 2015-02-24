@@ -1,6 +1,6 @@
 'use strict';
 
-describe("animations", function() {
+ddescribe("animations", function() {
 
   var element;
   afterEach(function() {

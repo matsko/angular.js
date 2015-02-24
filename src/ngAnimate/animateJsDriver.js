@@ -1,10 +1,11 @@
 'use strict';
 
-var $NgAnimateJsDriverProvider = ['$animateProvider', function($animateProvider) {
-  $animateProvider.drivers.push('ngAnimateJsDriver');
+var $NgAnimateJsDriverProvider = ['$animationProvider', function($animationProvider) {
+  $animationProvider.drivers.push('ngAnimateJsDriver');
 
-  var selectors = $animateProvider.$$selectors;
-  this.$get = ['$injector', '$$qAnimate', function($injector, $$qAnimate) {
+  var $$animations = $animationProvider.$$registeredAnimations;
+
+  this.$get = ['$injector', '$qRaf', function($injector, $qRaf) {
     return function(element, method, options) {
       var classes = element.attr('class');
 
@@ -100,7 +101,7 @@ var $NgAnimateJsDriverProvider = ['$animateProvider', function($animateProvider)
           } else {
             // note that all of these animations should run in parallel
             asyncOperations.push(function() {
-              var defer = $$qAnimate.defer();
+              var defer = $qRaf.defer();
               executeAnimationFn(animation, element, method, options, function(result) {
                 result === false ? defer.reject() : defer.resolve();
               });
@@ -124,7 +125,7 @@ var $NgAnimateJsDriverProvider = ['$animateProvider', function($animateProvider)
           });
         }
 
-        return promises.length ? $$qAnimate.all(promises) : true;
+        return promises.length ? $qRaf.all(promises) : true;
       };
     }
 
@@ -133,9 +134,9 @@ var $NgAnimateJsDriverProvider = ['$animateProvider', function($animateProvider)
       var matches = [], flagMap = {};
       for (var i=0; i < classes.length; i++) {
         var klass = classes[i],
-            selectorFactoryName = selectors[klass];
-        if (selectorFactoryName && !flagMap[klass]) {
-          matches.push($injector.get(selectorFactoryName));
+            animationFactory = $$animations[klass];
+        if (animationFactory && !flagMap[klass]) {
+          matches.push($injector.get(animationFactory));
           flagMap[klass] = true;
         }
       }

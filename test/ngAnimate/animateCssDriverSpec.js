@@ -1,4 +1,4 @@
-describe("$$animateCssDriver", function() {
+ddescribe("$$animateCssDriver", function() {
 
   function int(x) {
     return parseInt(x, 10);
@@ -32,9 +32,9 @@ describe("$$animateCssDriver", function() {
     captureLog = [];
     captureFn = noop;
 
-    $provide.factory('$animateCss', function($$qAnimate, $animateRunner) {
+    $provide.factory('$animateCss', function($qRaf, $animateRunner) {
       return function() {
-        var defered = $$qAnimate.defer();
+        var defered = $qRaf.defer();
 
         capturedAnimation = arguments
         captureFn.apply(null, arguments);
