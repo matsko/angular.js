@@ -1,6 +1,8 @@
 'use strict';
 
-describe("ngAnimate $$animateCssDriver", function() {
+ddescribe("ngAnimate $$animateCssDriver", function() {
+
+  beforeEach(module('ngAnimate'));
 
   function int(x) {
     return parseInt(x, 10);
@@ -12,8 +14,6 @@ describe("ngAnimate $$animateCssDriver", function() {
     }
     return true;
   }
-
-  beforeEach(module('ngAnimate'));
 
   var element;
   var ss;
@@ -59,7 +59,7 @@ describe("ngAnimate $$animateCssDriver", function() {
     element = jqLite('<div></div>');
 
     return function($$animateCssDriver, $q, $animateRunner, $document, $window) {
-      driver = $$animateCssDriver();
+      driver = $$animateCssDriver;
       ss = createMockStyleSheet($document, $window);
     };
   }));
@@ -98,7 +98,8 @@ describe("ngAnimate $$animateCssDriver", function() {
   });
 
   describe("anchored animations", function() {
-    var from, to;
+    var from, to, fromAnimation, toAnimation;
+
     beforeEach(module(function() {
       return function($rootElement, $document) {
         from = element;

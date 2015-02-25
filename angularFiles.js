@@ -90,6 +90,7 @@ var angularFiles = {
     'ngAnimate': [
       'src/ngAnimate/shared.js',
       'src/ngAnimate/animateCss.js',
+      'src/ngAnimate/animateJs.js',
       'src/ngAnimate/animateCssDriver.js',
       'src/ngAnimate/animateJsDriver.js',
       'src/ngAnimate/module.js'

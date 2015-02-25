@@ -29,20 +29,17 @@ var $AnimationProvider = ['$provide', function($provide) {
         }
       }
 
-      var tempClassName = options.tempClassName;
-
       var defered = $qRaf.defer();
       var runner = $animateRunner(defered.promise);
-      var classes = mergeClasses(element.attr('class'), mergeClasses(options.addClass, options.removeClass));
-      var driver = getDriver(element, event, classes);
-      if (!driver) {
+      if (!$$drivers.length) {
         close();
         return runner;
       }
 
+      var tempClassName = options.tempClassName;
+      var classes = mergeClasses(element.attr('class'), mergeClasses(options.addClass, options.removeClass));
       animationQueue.push({
         element: element,
-        driver: driver,
         classes: classes,
         event: event,
         start: start,
@@ -63,18 +60,13 @@ var $AnimationProvider = ['$provide', function($provide) {
         animationQueue.length = 0;
 
         forEach(animations, function(animationEntry) {
-          var operation = animationEntry.driver(animationEntry);
-          if (!operation) {
+          var operation = invokeFirstDriver(animationEntry);
+          var startAnimation = operation && (isFunction(operation) ? operation : operation.start);
+          if (!startAnimation) {
             animationEntry.close();
           } else {
             animationEntry.start();
-
-            // some drivers may have a two step starting operation or
-            // they might just return a promise as soon as they're called
-            var animationRunner = isPromiseLike(operation)
-                  ? operation
-                  : (operation.start || operation)();
-            animationRunner.then(function() {
+            animationRunner = startAnimation().then(function() {
                 animationEntry.close();
               }, function() {
                 animationEntry.close(true);
@@ -110,7 +102,7 @@ var $AnimationProvider = ['$provide', function($provide) {
               refLookup[key] = refLookup[key] || {};
               refLookup[key][direction] = {
                 animationID: index,
-                element: angular.element(anchor)
+                element: jqLite(anchor)
               };
             });
           } else {
@@ -150,7 +142,6 @@ var $AnimationProvider = ['$provide', function($provide) {
                 toAnimation.close();
               },
               classes: cssClassesIntersection(fromAnimation.classes, toAnimation.classes),
-              driver: fromAnimation.driver,
               from: fromAnimation,
               to: toAnimation,
               anchors: []
@@ -192,7 +183,7 @@ var $AnimationProvider = ['$provide', function($provide) {
         return matches.join(' ');
       }
 
-      function getDriver(element, event, classes) {
+      function invokeFirstDriver(details) {
         // we loop in reverse order since the more general drivers (like CSS and JS)
         // may attempt more elements, but custom drivers are more particular
         for (var i = $$drivers.length - 1; i >= 0; i--) {
@@ -200,7 +191,7 @@ var $AnimationProvider = ['$provide', function($provide) {
           if (!$injector.has(driverName)) continue;
 
           var factory = $injector.get(driverName);
-          var driver = factory(element, event, classes);
+          var driver = factory(details);
           if (driver) {
             return driver;
           }

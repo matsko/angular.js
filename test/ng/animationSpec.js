@@ -1,6 +1,6 @@
 'use strict';
 
-describe('$animation', function() {
+ddescribe('$animation', function() {
 
   var element;
   afterEach(function() {
@@ -16,6 +16,8 @@ describe('$animation', function() {
         $animationProvider.drivers.push('2');
         $animationProvider.drivers.push('3');
 
+        var fakePromise;
+
         $provide.value('1', function() {
           count++;
         });
@@ -24,12 +26,17 @@ describe('$animation', function() {
           count++;
           return function() {
             activeDriver = '2';
+            return fakePromise;
           };
         });
 
         $provide.value('3', function() {
           count++;
         });
+
+        return function($q) {
+          fakePromise = $q.when(true);
+        };
       });
 
       inject(function($animation, $rootScope) {
@@ -42,36 +49,12 @@ describe('$animation', function() {
       });
     });
 
-    it("should call the driver init method and pass in the element, event and CSS classes", function() {
-      var capturedAnimation;
-      module(function($animationProvider, $provide) {
-        $animationProvider.drivers.push('capturer');
-        $provide.value('capturer', function() {
-          capturedAnimation = arguments;
-        });
-      });
-
-      inject(function($animation, $rootScope) {
-        element = jqLite('<div class="one"></div>');
-        $animation(element, 'enter', {
-          addClass: 'two',
-          removeClass: 'three'
-        });
-
-        expect(capturedAnimation[0]).toBe(element);
-        expect(capturedAnimation[1]).toBe('enter');
-        expect(capturedAnimation[2]).toBe('one two three');
-      });
-    });
-
     it("should call the driver step function and pass in the element and the provided options", function() {
       var capturedAnimation;
       module(function($animationProvider, $provide) {
         $animationProvider.drivers.push('stepper');
         $provide.value('stepper', function() {
-          return function() {
-            capturedAnimation = arguments;
-          }
+          capturedAnimation = arguments;
         });
       });
 
@@ -105,9 +88,10 @@ describe('$animation', function() {
         });
       });
 
-      inject(function($animation) {
+      inject(function($animation, $rootScope) {
         element = jqLite('<div></div>');
         $animation(element, 'enter');
+        $rootScope.$digest();
         expect(log).toEqual(['second', 'first']);
       });
     });
@@ -157,11 +141,11 @@ describe('$animation', function() {
       $animationProvider.drivers.push('interceptorDriver');
       $provide.factory('interceptorDriver', function($q, $animateRunner) {
         return function() {
+          captureLog.push(capturedAnimation = arguments[0]); //only one param is passed into the driver
           return function() {
-            captureLog.push(capturedAnimation = arguments[0]); //only one param is passed into the driver
             var runner = $q.when(true);
             return $animateRunner(runner);
-          }
+          };
         }
       });
 
@@ -430,11 +414,9 @@ describe('$animation', function() {
       module(function($animationProvider, $provide) {
         $animationProvider.drivers[0] = 'dumbDriver';
         $provide.factory('dumbDriver', function($q) {
-          return function initFn() {
-            return function stepFn() {
-              return $q.when(true);
-            };
-          }
+          return function stepFn() {
+            return $q.when(true);
+          };
         });
       });
       inject(function($animation, $rootScope, $$rAF) {

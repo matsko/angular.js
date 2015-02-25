@@ -11,14 +11,12 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
     var bodyNode = $document[0].body;
     var rootNode = $rootElement[0];
 
-    var rootBodyElement = angular.element(bodyNode.parentNode === rootNode ? bodyNode : rootNode);
+    var rootBodyElement = jqLite(bodyNode.parentNode === rootNode ? bodyNode : rootNode);
 
-    return function() {
-      return function stepFn(details) {
-        return details.from && details.to
-            ? prepareTransitionAnimation(details.from, details.to, details.classes, details.anchors)
-            : prepareRegularAnimation(details);
-      };
+    return function(details) {
+      return details.from && details.to
+          ? prepareTransitionAnimation(details.from, details.to, details.classes, details.anchors)
+          : prepareRegularAnimation(details);
     }
 
     function filterCssClasses(classes) {
@@ -27,7 +25,7 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
     }
 
     function prepareAnchoredAnimation(classes, outAnchor, inAnchor) {
-      var clone = angular.element(outAnchor[0].cloneNode(true));
+      var clone = jqLite(outAnchor[0].cloneNode(true));
       var startingClasses = filterCssClasses(clone.attr('class') || '');
       var anchorClasses = pendClasses(classes, NG_ANIMATE_ANCHOR_SUFFIX);
 

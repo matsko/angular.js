@@ -1,9 +1,11 @@
 'use strict';
 
-var isArray = angular.isArray;
+var noop     = angular.noop;
+var jqLite   = angular.element;
+var forEach  = angular.forEach;
+var isArray  = angular.isArray;
 var isString = angular.isString;
-var forEach = angular.forEach;
-var noop = angular.noop;
+var isObject = angular.isObject;
 
 function packageStyles(options) {
   var styles = {};

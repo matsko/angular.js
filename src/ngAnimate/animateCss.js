@@ -112,7 +112,7 @@ function applyInlineStyle(node, key, value) {
   node.style[key] = value;
 }
 
-function Lookup() {
+function LocalCacheLookup() {
   var cache = {};
   return {
     flush : function() {
@@ -140,8 +140,8 @@ function Lookup() {
 }
 
 var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
-  var gcsLookup = new Lookup();
-  var gcsStaggerLookup = new Lookup();
+  var gcsLookup = new LocalCacheLookup();
+  var gcsStaggerLookup = new LocalCacheLookup();
   this.$get = ['$window', '$$jqLite', '$qRaf', '$timeout', '$$rAF', '$animateRunner', '$document',
        function($window,   $$jqLite,   $qRaf,   $timeout,   $$rAF,   $animateRunner,   $document) {
 
@@ -477,7 +477,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         $$jqLite.removeClass(element, setupClasses);
         $$jqLite.removeClass(element, activeClasses);
 
-        angular.forEach(temporaryStyles, function(entry) {
+        forEach(temporaryStyles, function(entry) {
           // There is only one way to remove inline style properties entirely from elements.
           // By using `removeProperty` this works, but we need to convert camel-cased CSS
           // styles down to hyphenated values.
@@ -580,7 +580,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
 
           applyBlocking(false);
 
-          angular.forEach(temporaryStyles, function(entry) {
+          forEach(temporaryStyles, function(entry) {
             var key = entry[0];
             var value = entry[1];
             node.style[key] = value;
