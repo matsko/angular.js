@@ -1,91 +1,119 @@
 'use strict';
 
-var $NgAnimateJsDriverProvider = ['$animationProvider', function($animationProvider) {
-  $animationProvider.drivers.push('ngAnimateJsDriver');
-
-  var $$animations = $animationProvider.$$registeredAnimations;
-
+var $AnimateJsDriverProvider = ['$animationProvider', function($animationProvider) {
+  $animationProvider.drivers.push('$$animateJsDriver');
   this.$get = ['$injector', '$qRaf', function($injector, $qRaf) {
-    return function(element, method, options) {
-      var classes = element.attr('class');
-
-      options = options || {};
-      var domOperation = options.domOperation || noop;
-
+    return function(element, method, classes) {
+      classes = classes || element.attr('class') || '';
       // the lookupAnimations function returns a series of animation objects that are
       // matched up with one or more of the CSS classes. These animation objects are
-      // defined via the module.animation factory function.
+      // defined via the module.animation factory function. If nothing is detected then
+      // we don't return anything which then makes $animation query the next driver.
       var animations = lookupAnimations(classes);
-      if (animations.length === 0) return;
+      var before, after;
+      if (animations.length) {
+        var afterFn, beforeFn;
+        if (method == 'leave') {
+          beforeFn = 'leave';
+          afterFn = 'afterLeave';
+        } else {
+          beforeFn = 'before' + method.charAt(0).toUpperCase() + method.substr(1);
+          afterFn = method;
+        }
 
-      var afterFn, beforeFn;
-      if (method == 'leave') {
-        beforeFn = 'leave';
-        afterFn = 'afterLeave';
-      } else {
-        beforeFn = 'before' + method.charAt(0).toUpperCase() + method.substr(1);
-        afterFn = method;
+        before = packageAnimations(element, method, animations, beforeFn);
+        after  = packageAnimations(element, method, animations, afterFn);
       }
 
-      var cancelFn = noop;
-
-      var before = packageAnimations(element, method, options, animations, beforeFn);
-      var after  = packageAnimations(element, method, options, animations, afterFn);
+      // no matching animations
       if (!before && !after) return;
 
-      var domOperationCalled = false;
-      return {
-        cancel : function() {
-          cancelFn();
-        },
-        next : function(index, previousData) {
-          if (before) {
-            var result = before();
-            before = null;
-            return yieldWith(result);
-          }
+      return function(details) {
+        var cancelFn = noop;
+        var _domOperation = details.domOperation;
+        var domOperationCalled = !_domOperation;
+        var domOperation = _domOperation && function() {
+          domOperationCalled = true;
+          _domOperation();
+        };
 
-          if(!domOperationCalled) {
-            domOperationCalled = true;
-            domOperation();
-          }
+        var options = details.options || {};
 
-          if (after) {
-            var result = after();
-            after = null;
-            return yieldWith(result);
+        return {
+          cancel : function() {
+            cancelFn();
+          },
+          start : function() {
+            var chain;
+            if (before) {
+              chain = before(options);
+            }
+
+            if (domOperation) {
+              if (isPromiseLike(chain)) {
+                chain = chain.then(domOperation);
+              } else {
+                domOperation();
+              }
+            }
+
+            if (after) {
+              if (isPromiseLike(chain)) {
+                chain = chain.then(function() {
+                  return after(options);
+                });
+              } else {
+                chain = after(options);
+              }
+            }
+
+            chain = isPromiseLike(chain) ? chain : $qRaf.when(chain);
+            return chain.finally(function() {
+              !domOperationCalled && domOperation();
+            });
           }
         }
       }
     };
 
     function executeAnimationFn(fn, element, method, options, onDone) {
-      var classesToAdd = options.add;
-      var classesToRemove = options.remove;
-      var args;
+      var classesToAdd = options.addClass;
+      var classesToRemove = options.removeClass;
 
+      var args;
       switch(method) {
+        case 'animate':
+          args = [element, options.from, options.to, onDone];
+          break;
+
         case 'setClass':
-          args = [element, classesToAdd, classesToRemove, onDone]
+          args = [element, classesToAdd, classesToRemove, onDone];
           break;
 
         case 'addClass':
-          args = [element, classesToAdd, onDone]
+          args = [element, classesToAdd, onDone];
           break;
 
         case 'removeClass':
-          args = [element, classesToRemove, onDone]
+          args = [element, classesToRemove, onDone];
           break;
 
         default:
-          args = onDone ? [element, onDone] : [element]
+          args = onDone ? [element, onDone] : [element];
           break;
       }
 
-      return fn.apply(fn, args);
+      args.push(options);
+
+      var value = fn.apply(fn, args);
+      if (isPromiseLike(value)) {
+        value.then(onDone, function() {
+          onDone(false);
+        });
+      }
     }
 
-    function packageAnimations(element, method, options, animations, fnName) {
+    function groupEventedAnimations(element, method, animations, fnName) {
       var asyncOperations = [];
       var syncOperations = [];
       angular.forEach(animations, function(ani) {
@@ -95,12 +123,12 @@ var $NgAnimateJsDriverProvider = ['$animationProvider', function($animationProvi
           // the DOM operation happens at the right time for things to work properly
           var syncAnimation = fnName == 'beforeEnter' || fnName == 'beforeMove';
           if (syncAnimation) {
-            syncOperations.push(function() {
+            syncOperations.push(function(options) {
               return executeAnimationFn(animation, element, method, options);
             });
           } else {
             // note that all of these animations should run in parallel
-            asyncOperations.push(function() {
+            asyncOperations.push(function(options) {
               var defer = $qRaf.defer();
               executeAnimationFn(animation, element, method, options, function(result) {
                 result === false ? defer.reject() : defer.resolve();
@@ -111,30 +139,59 @@ var $NgAnimateJsDriverProvider = ['$animationProvider', function($animationProvi
         }
       });
 
+      return (syncOperations.length || asyncOperations.length) && [syncOperations, asyncOperations];
+    }
+
+    function packageAnimations(element, method, animations, fnName) {
+      var operations = groupEventedAnimations(element, method, animations, fnName);
+      var syncOperations = [];
+      var asyncOperations = [];
+
+      if (!operations) {
+        var a,b;
+        if (fnName === 'beforeSetClass') {
+          a = groupEventedAnimations(element, 'removeClass', animations, 'beforeRemoveClass');
+          b = groupEventedAnimations(element, 'addClass', animations, 'beforeAddClass');
+        } else if (fnName === 'setClass') {
+          a = groupEventedAnimations(element, 'removeClass', animations, 'removeClass');
+          b = groupEventedAnimations(element, 'addClass', animations, 'addClass');
+        }
+        if (a) {
+          syncOperations = syncOperations.concat(a[0]);
+          asyncOperations = asyncOperations.concat(a[1]);
+        }
+        if (b) {
+          syncOperations = syncOperations.concat(b[0]);
+          asyncOperations = asyncOperations.concat(b[1]);
+        }
+      } else {
+        syncOperations = operations[0];
+        asyncOperations = operations[1];
+      }
+
       if (!syncOperations.length && !asyncOperations.length) return;
 
-      return function() {
+      return function(options) {
         angular.forEach(syncOperations, function(op) {
-          op();
+          op(options);
         });
 
         var promises = [];
         if (asyncOperations.length) {
           angular.forEach(asyncOperations, function(op) {
-            promises.push(op());
+            promises.push(op(options));
           });
         }
-
         return promises.length ? $qRaf.all(promises) : true;
       };
     }
 
     function lookupAnimations(classes) {
-      classes = classes.split(' ');
+      classes = isArray(classes) ? classes : classes.split(' ');
       var matches = [], flagMap = {};
       for (var i=0; i < classes.length; i++) {
         var klass = classes[i],
-            animationFactory = $$animations[klass];
+            animationFactory = $animationProvider.$$registeredAnimations[klass];
         if (animationFactory && !flagMap[klass]) {
           matches.push($injector.get(animationFactory));
           flagMap[klass] = true;

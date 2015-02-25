@@ -1,4 +1,6 @@
-ddescribe("$$animateCssDriver", function() {
+'use strict';
+
+describe("ngAnimate $$animateCssDriver", function() {
 
   function int(x) {
     return parseInt(x, 10);

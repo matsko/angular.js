@@ -34,7 +34,7 @@ function $AnimateRunnerProvider() {
   }];
 }
 
-var $AnimateProvider = ['$provide', function($provide) {
+var $AnimateProvider = [function() {
   var animationsEnabled = true;
 
   this.$get = ['$$animateQueue', '$$jqLite', function($$animateQueue, $$jqLite) {

@@ -538,6 +538,7 @@ function qFactory(initFn, nextTick, exceptionHandler) {
 
   var when = function(value, callback, errback, progressBack) {
     var result = new Deferred();
+    initFn(promiseData);
     result.resolve(value);
     return result.promise.then(callback, errback, progressBack);
   };

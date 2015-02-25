@@ -1,4 +1,4 @@
-var $AnimationProvider = [function() {
+var $AnimationProvider = ['$provide', function($provide) {
   var NG_ANIMATE_CLASSNAME = 'ng-animate';
   var NG_ANIMATE_REF_ATTR = 'ng-animate-ref';
 

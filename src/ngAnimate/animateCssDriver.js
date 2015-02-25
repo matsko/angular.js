@@ -1,4 +1,4 @@
-var $NgAnimateCssDriverProvider = ['$animationProvider', function($animationProvider) {
+var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvider) {
   $animationProvider.drivers.push('ngAnimateCssDriver');
 
   var NG_ANIMATE_SHIM_CLASS_NAME = 'ng-animate-shim';
