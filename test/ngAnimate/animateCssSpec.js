@@ -1,6 +1,6 @@
 'use strict';
 
-ddescribe("ngAnimate $animateCss", function() {
+describe("ngAnimate $animateCss", function() {
 
   beforeEach(module('ngAnimate'));
 

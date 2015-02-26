@@ -1,5 +1,5 @@
 var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvider) {
-  $animationProvider.drivers.push('ngAnimateCssDriver');
+  $animationProvider.drivers.push('$$animateCssDriver');
 
   var NG_ANIMATE_SHIM_CLASS_NAME = 'ng-animate-shim';
   var NG_ANIMATE_ANCHOR_CLASS_NAME = 'ng-animate-anchor';
@@ -17,7 +17,7 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
       return details.from && details.to
           ? prepareTransitionAnimation(details.from, details.to, details.classes, details.anchors)
           : prepareRegularAnimation(details);
-    }
+    };
 
     function filterCssClasses(classes) {
       //remove all the `ng-` stuff

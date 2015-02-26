@@ -66,11 +66,16 @@ var $AnimationProvider = ['$provide', function($provide) {
             animationEntry.close();
           } else {
             animationEntry.start();
-            animationRunner = startAnimation().then(function() {
-                animationEntry.close();
-              }, function() {
-                animationEntry.close(true);
-              });
+            var animationRunner = startAnimation();
+            animationRunner.then(function() {
+              animationEntry.close();
+            }, function() {
+              animationEntry.close(true);
+            });
+
+            if (isPromiseLike(animationRunner)) {
+              $animateRunner(runner, animationRunner);
+            }
           }
         });
       });

@@ -2,6 +2,7 @@
 
 var $animateMinErr = minErr('ngAnimate');
 var NG_ANIMATE_ATTR_NAME = 'data-ng-animate';
+var NG_ANIMATE_CHILDREN_DATA = '$$ngAnimateChildren';
 var ELEMENT_NODE = 1;
 var COMMENT_NODE = 8;
 
@@ -33,6 +34,20 @@ function $AnimateRunnerProvider() {
     };
   }];
 }
+
+var ngAnimateChildrenDirective = [function() {
+  return function(scope, element, attrs) {
+    var val = attrs.ngAnimateChildren;
+    if (angular.isString(val) && val.length === 0) { //empty attribute
+      element.data(NG_ANIMATE_CHILDREN_DATA, true);
+    } else {
+      attrs.$observe('ngAnimateChildren', function(value) {
+        value = value === 'on' || value === 'true' || value === '1';
+        element.data(NG_ANIMATE_CHILDREN_DATA, value);
+      });
+    }
+  };
+}];
 
 var $AnimateProvider = [function() {
   var animationsEnabled = true;
@@ -84,7 +99,7 @@ var $AnimateProvider = [function() {
           domInsertFactory(element, parent, after));
       },
 
-      leave : function(element, options) {
+      leave: function(element, options) {
         return $$animateQueue.push(element, element.parent(), 'leave', options, domLeave);
 
         function domLeave() {
@@ -92,7 +107,7 @@ var $AnimateProvider = [function() {
         }
       },
 
-      addClass : function(element, className, options) {
+      addClass: function(element, className, options) {
         options = options || {};
         options.addClass = mergeClasses(options.addclass, className);
         return $$animateQueue.push(element, element.parent(), 'addClass', options, domAddClass);
@@ -102,7 +117,7 @@ var $AnimateProvider = [function() {
         }
       },
 
-      removeClass : function(element, className, options) {
+      removeClass: function(element, className, options) {
         options = options || {};
         options.removeClass = mergeClasses(options.removeClass, className);
         return $$animateQueue.push(element, element.parent(), 'removeClass', options, domRemoveClass);
@@ -112,7 +127,7 @@ var $AnimateProvider = [function() {
         }
       },
 
-      setClass : function(element, add, remove, options) {
+      setClass: function(element, add, remove, options) {
         options = options || {};
         options.addClass = mergeClasses(options.addClass, add);
         options.removeClass = mergeClasses(options.removeClass, remove);
@@ -122,6 +137,9 @@ var $AnimateProvider = [function() {
           add    && $$jqLite.addClass(element, add);
           remove && $$jqLite.removeClass(element, remove);
         }
+      },
+
+      animate: function(element, add, remove, options) {
       }
     };
   }];
@@ -423,7 +441,10 @@ function $$AnimateQueueProvider() {
             function() { defered.resolve(); },
             function() { defered.reject(); }
           )['finally'](function() {
-            clearElementAnimationState(element);
+            var details = activeAnimationsLookup.get(node);
+            if (details && details.counter === counter) {
+              clearElementAnimationState(element);
+            }
           });
 
         // this will update the runner's flow-control events based on
@@ -471,15 +492,28 @@ function $$AnimateQueueProvider() {
 
     function closeParentClassBasedAnimations(startingElement) {
       var parentNode = startingElement[0];
+      var flaggedNodes = {};
       do {
         if (!parentNode || parentNode.nodeType !== ELEMENT_NODE) break;
 
+        // if for some reason an earlier animation never completed or a move
+        // operation resulted in the parent node switching to a decendant node
+        // then we may end up having a cycle in the graph traversal. This check
+        // ensures that does not end up happening
+        if (flaggedNodes[parentNode.$$hashKey]) break;
+
+        var nextParentNode = parentNode.parentNode;
         var details = activeAnimationsLookup.get(parentNode);
         if (details) {
+          flaggedNodes[parentNode.$$hashKey] = true;
           examineParentAnimation(parentNode, details);
+
+          if (details.parent && details.parent.length) {
+            nextParentNode = details.parent[0];
+          }
         }
 
-        parentNode = parentNode.parentNode;
+        parentNode = nextParentNode;
       } while(true);
 
       // since animations are detected from CSS classes, we need to flush all parent
@@ -499,14 +533,11 @@ function $$AnimateQueueProvider() {
     function areAnimationsAllowed(element, parent) {
       var bodyElement = jqLite($document[0].body);
       var bodyElementDetected = false;
-      var rootElementDetected = isMatchingElement(parent, $rootElement);
+      var rootElementDetected = false;
+      var parentAnimationDetected = false;
+      var animateChildren;
 
-      parent = rootElementDetected
-        ? element
-        : parent || element.parent();
-
-      if (!parent) return false;
-
+      var flaggedNodes = {};
       while(parent && parent.length) {
         var parentNode = parent[0];
         if (parentNode.nodeType !== ELEMENT_NODE) {
@@ -514,12 +545,29 @@ function $$AnimateQueueProvider() {
           break;
         }
 
-        var details = activeAnimationsLookup.get(parentNode) || {};
+        // if for some reason an earlier animation never completed or a move
+        // operation resulted in the parent node switching to a decendant node
+        // then we may end up having a cycle in the graph traversal. This check
+        // ensures that does not end up happening
+        if (flaggedNodes[parentNode.$$hashKey]) break;
+
+        var details = activeAnimationsLookup.get(parentNode);
+        if (details) {
+          flaggedNodes[parentNode.$$hashKey] = true;
+        }
+
         // either an enter, leave or move animation will commence
         // therefore we can't allow any animations to take place
         // but if a parent animation is class-based then that's ok
-        if (details.structural || disabledElementsLookup.get(parentNode)) {
-          return false;
+        if (!parentAnimationDetected) {
+          parentAnimationDetected = (details && details.structural) || disabledElementsLookup.get(parentNode);
+        }
+
+        if (isUndefined(animateChildren) || animateChildren === true) {
+          var value = parent.data(NG_ANIMATE_CHILDREN_DATA);
+          if (isDefined(value)) {
+            animateChildren = value;
+          }
         }
 
         if (!rootElementDetected) {
@@ -534,10 +582,15 @@ function $$AnimateQueueProvider() {
           bodyElementDetected = isMatchingElement(parent, bodyElement);
         }
 
-        parent = parent.parent();
+        // since we deal with enter and move later on, the parent may not be present in the DOM,
+        // however we do place a pointer to the new parent in the animation definition
+        parent = details && details.parent && details.parent.length
+            ? details.parent
+            : parent.parent();
       }
 
-      return rootElementDetected && bodyElementDetected;
+      var allowAnimation = !parentAnimationDetected || animateChildren;
+      return allowAnimation && rootElementDetected && bodyElementDetected;
     }
 
     function splitClasses(classes) {

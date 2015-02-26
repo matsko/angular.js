@@ -1,6 +1,6 @@
 'use strict';
 
-ddescribe('$animation', function() {
+describe('$animation', function() {
 
   var element;
   afterEach(function() {
@@ -123,6 +123,43 @@ ddescribe('$animation', function() {
         $$rAF.flush();
 
         expect(status).toBe(event);
+      });
+    });
+
+    they("should $prop the driver animation when runner.$prop() is called",
+      ['cancel', 'end'], function(method) {
+
+      var log = [];
+
+      module(function($animationProvider, $provide) {
+        $animationProvider.drivers.push('actualDriver');
+        $provide.factory('actualDriver', function($qRaf, $animateRunner) {
+          return function() {
+            return {
+              start : function() {
+                log.push('start');
+                var promise = $qRaf.when(true);
+                return $animateRunner(promise, {
+                  end : function() {
+                    log.push('end');
+                  },
+                  cancel : function() {
+                    log.push('cancel');
+                  }
+                });
+              }
+            };
+          };
+        });
+      });
+
+      inject(function($animation, $rootScope) {
+        var element = jqLite('<div></div>');
+        var runner = $animation(element, 'enter');
+        $rootScope.$digest();
+
+        runner[method]();
+        expect(log).toEqual(['start', method]);
       });
     });
   });

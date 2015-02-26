@@ -1,6 +1,6 @@
 'use strict';
 
-describe("animations", function() {
+ddescribe("animations", function() {
 
   var element;
   afterEach(function() {
@@ -220,10 +220,9 @@ describe("animations", function() {
       }));
     });
 
-    it('enter() should issue an enter animation with the correct DOM operation', inject(function($animate, $rootScope) {
+    it('enter() should issue an enter animation and fire the DOM operation right away', inject(function($animate, $rootScope) {
       $animate.enter(element, parent, null, options);
       $rootScope.$digest();
-
       expect(capturedAnimation[0]).toBe(element);
       expect(capturedAnimation[1]).toBe('enter');
       expect(capturedAnimation[2]).toEqual(options);
@@ -233,7 +232,7 @@ describe("animations", function() {
       expect(parent.children().length).toBe(1);
     }));
 
-    it('move() should issue a move animation with the correct DOM operation', inject(function($animate, $rootScope) {
+    it('move() should issue an enter animation and fire the DOM operation right away', inject(function($animate, $rootScope) {
       parent.append(element);
       $animate.move(element, parent2, null, options);
       $rootScope.$digest();
@@ -268,16 +267,11 @@ describe("animations", function() {
     they('$prop() should append to the parent incase the after element is destroyed before the DOM operation is issued',
       ['enter', 'move'], function(event) {
       inject(function($animate, $rootScope) {
-        $animate[event](element, parent, parent2, options);
-        $rootScope.$digest();
-
-        expect(capturedAnimation[1]).toBe(event);
-        expect(parent2.next()).not.toEqual(element);
-
         parent2.remove();
-        capturedAnimation[3]();
-
-        expect(parent.children().length).toBe(1);
+        $animate[event](element, parent, parent2, options);
+        expect(parent2.next()).not.toEqual(element);
+        $rootScope.$digest();
+        expect(capturedAnimation[1]).toBe(event);
       });
     });
 
@@ -345,7 +339,7 @@ describe("animations", function() {
 
     describe('parent animations', function() {
       it('should immediately end a pre-digest parent class-based animation if a structural child is active',
-        inject(function($rootScope, $rootElement, $animate) {
+        inject(function($rootScope, $animate) {
 
         parent.append(element);
         var child = jqLite('<div></div>');
@@ -620,9 +614,7 @@ describe("animations", function() {
         expect(element.parent().length).toBe(0);
         expect(element).not.toHaveClass('red');
         expect(element).toHaveClass('green');
-
         capturedAnimation[3]();
-
         expect(element.parent().length).toBe(1);
         expect(element).toHaveClass('red');
         expect(element).not.toHaveClass('green');
@@ -710,4 +702,108 @@ describe("animations", function() {
       }));
     });
   })
+
+  describe('[ng-animate-children]', function() {
+    var parent, element, child, capturedAnimation, captureLog;
+    beforeEach(module(function($provide) {
+      capturedAnimation = null;
+      captureLog = [];
+      $provide.factory('$animation', function($q) {
+        return function(element, method, options, domOperation) {
+          domOperation();
+          captureLog.push(capturedAnimation = arguments);
+          return $q.when(true);
+        };
+      });
+      return function($rootElement, $document, $animate) {
+        jqLite($document[0].body).append($rootElement);
+        parent  = jqLite('<div class="parent"></div>');
+        element = jqLite('<div class="element"></div>');
+        child   = jqLite('<div class="child"></div>');
+        $animate.enabled(true);
+      };
+    }));
+
+    it('should allow child animations to run when the attribute is used',
+      inject(function($animate, $rootScope, $rootElement, $compile) {
+
+      $animate.enter(parent, $rootElement);
+      $animate.enter(element, parent);
+      $animate.enter(child, element);
+      $rootScope.$digest();
+      expect(captureLog.length).toBe(1);
+
+      captureLog = [];
+
+      parent.attr('ng-animate-children', '');
+      $compile(parent)($rootScope);
+      $rootScope.$digest();
+
+      $animate.enter(parent, $rootElement);
+      $rootScope.$digest();
+      expect(captureLog.length).toBe(1);
+
+      $animate.enter(element, parent);
+      $animate.enter(child, element);
+      $rootScope.$digest();
+      expect(captureLog.length).toBe(3);
+    }));
+
+    it('should fully disallow all parallel child animations from running if `off` is used',
+      inject(function($animate, $rootScope, $rootElement, $compile) {
+
+      $rootElement.append(parent);
+      parent.append(element);
+      element.append(child);
+
+      parent.attr('ng-animate-children', 'off');
+      element.attr('ng-animate-children', 'on');
+
+      $compile(parent)($rootScope);
+      $compile(element)($rootScope);
+      $rootScope.$digest();
+
+      $animate.leave(parent);
+      $animate.leave(element);
+      $animate.leave(child);
+      $rootScope.$digest();
+
+      expect(captureLog.length).toBe(1);
+
+      dealoc(element);
+      dealoc(child);
+    }));
+
+    it('should watch to see if the ng-animate-children attribute changes',
+      inject(function($animate, $rootScope, $rootElement, $compile) {
+
+      $rootElement.append(parent);
+      $rootScope.val = 'on';
+      parent.attr('ng-animate-children', '{{ val }}');
+      $compile(parent)($rootScope);
+      $rootScope.$digest();
+
+      $animate.enter(parent, $rootElement);
+      $animate.enter(element, parent);
+      $animate.enter(child, element);
+      $rootScope.$digest();
+      expect(captureLog.length).toBe(3);
+
+      captureLog = [];
+
+      $rootScope.val = 'off';
+      parent.attr('ng-animate-children', '{{ val }}');
+      $rootScope.$digest();
+
+      $animate.leave(parent);
+      $animate.leave(element);
+      $animate.leave(child);
+      $rootScope.$digest();
+
+      expect(captureLog.length).toBe(1);
+
+      dealoc(element);
+      dealoc(child);
+    }));
+  });
 });

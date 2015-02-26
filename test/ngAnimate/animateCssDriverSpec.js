@@ -1,6 +1,6 @@
 'use strict';
 
-ddescribe("ngAnimate $$animateCssDriver", function() {
+describe("ngAnimate $$animateCssDriver", function() {
 
   beforeEach(module('ngAnimate'));
 
@@ -62,6 +62,12 @@ ddescribe("ngAnimate $$animateCssDriver", function() {
       driver = $$animateCssDriver;
       ss = createMockStyleSheet($document, $window);
     };
+  }));
+
+  it('should register the $$animateCssDriver into the list of drivers found in $animateProvider',
+    module(function($animateProvider) {
+
+    expect($animateProvider.drivers).toContain('$$animateCssDriver');
   }));
 
   describe("regular animations", function() {

@@ -2,7 +2,7 @@
 
 var $AnimateJsDriverProvider = ['$animationProvider', function($animationProvider) {
   $animationProvider.drivers.push('$$animateJsDriver');
-  this.$get = [function() {
+  this.$get = ['$animateJs', function($animateJs) {
     return function(details) {
       var element = details.element;
       var event = details.event;

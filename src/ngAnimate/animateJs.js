@@ -3,13 +3,24 @@
 var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
   this.$get = ['$injector', '$qRaf', '$animateRunner', function($injector, $qRaf, $animateRunner) {
     return function(element, event, classes, options) {
+      // the `classes` argument is optional and if it is not used
+      // then the classes will be resolved from the element's className
+      // property as well as options.addClass/options.removeClass.
       if (arguments.length === 3 && isObject(classes)) {
         options = classes;
         classes = null;
       }
 
-      classes = classes || element.attr('class') || '';
       options = options || {};
+      if (!classes) {
+        classes = element.attr('class') || '';
+        if (options.addClass) {
+          classes += ' ' + options.addClass;
+        }
+        if (options.removeClass) {
+          classes += ' ' + options.removeClass;
+        }
+      }
 
       // the lookupAnimations function returns a series of animation objects that are
       // matched up with one or more of the CSS classes. These animation objects are
