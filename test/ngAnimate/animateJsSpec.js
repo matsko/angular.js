@@ -293,8 +293,7 @@ describe("ngAnimate $animateJs", function() {
       });
     });
 
-    they("$prop should have the function signature of (element, options) for the before animation",
-      ['enter', 'move'], function(event) {
+    they("$prop should not execute a before function", enterMoveEvents, function(event) {
       inject(function() {
         var args;
         var beforeMethod = 'before' + event.charAt(0).toUpperCase() + event.substr(1);
@@ -302,11 +301,9 @@ describe("ngAnimate $animateJs", function() {
         animations[beforeMethod] = function() {
           args = arguments;
         };
-        runAnimation(event, noop, noop, animationOptions);
 
-        expect(args.length).toBe(2);
-        expect(args[0]).toBe(element);
-        expect(args[1]).toBe(animationOptions);
+        runAnimation(event, noop, noop, animationOptions);
+        expect(args).toBeFalsy();
       });
     });
 
@@ -424,24 +421,6 @@ describe("ngAnimate $animateJs", function() {
     var enterMoveEvents = ['enter', 'move'];
     var otherEvents = ['addClass', 'removeClass', 'setClass'];
     var allEvents = ['leave'].concat(otherEvents).concat(enterMoveEvents);
-
-    they("$prop should synchronously render the before$prop animation", enterMoveEvents, function(event) {
-      inject(function($$rAF) {
-        var beforeMethod = 'before' + event.charAt(0).toUpperCase() + event.substr(1);
-        animations[beforeMethod] = function(element, options) {
-          log.push('before ' + event);
-          expect(isFunction(options)).toBe(false);
-        };
-
-        runAnimation(event, function() {
-          log.push('complete');
-        });
-
-        expect(log).toEqual(['before ' + event, 'dom ' + event]);
-        $$rAF.flush();
-        expect(log).toEqual(['before ' + event, 'dom ' + event, 'complete']);
-      });
-    });
 
     they("$prop should asynchronously render the before$prop animation", otherEvents, function(event) {
       inject(function($$rAF) {
@@ -613,7 +592,6 @@ describe("ngAnimate $animateJs", function() {
         expect(log).toEqual(['before ' + event, 'dom ' + event, 'fail']);
       });
     });
-
 
     it('setClass should delegate down to addClass/removeClass if not defined', inject(function($$rAF) {
       animations.addClass = function(element, done) {

@@ -42,10 +42,29 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
 
       return {
         start : function() {
-          return animatorOut.start().then(function() {
+          var currentAnimation = animatorOut.start();
+          promise = currentAnimation.then(function() {
+            currentAnimation = null;
             var animatorIn = prepareInAnimation();
-            return animatorIn ? animatorIn.start().then(end) : end();
+            if (animatorIn) {
+              currentAnimation = animatorIn.start();
+              return currentAnimation.then(function() {
+                currentAnimation = null;
+                end();
+              });
+            }
+            // in the event that there is no `in` animation
+            end();
           });
+
+          return $animateRunner(promise, {
+            end: endFn,
+            cancel: endFn
+          });
+
+          function endFn() {
+            if(currentAnimation) currentAnimation.end();
+          }
         }
       };
 
@@ -65,7 +84,7 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
               value += bodyNode.scrollLeft;
               break;
           }
-          styles[key] = value + 'px';
+          styles[key] = Math.floor(value) + 'px';
         });
         return styles;
       }
@@ -123,46 +142,47 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
         start : function() {
           var runner, animations = [];
           if (fromAnimation) {
-            runner = fromAnimation.start().then(function() {
-              fromAnimation.domOperation();
-            });
-            animations.push(runner);
+            animations.push(fromAnimation.start());
           }
 
           if (toAnimation) {
-            runner = toAnimation.start().then(function() {
-              toAnimation.domOperation();
-            });
-            animations.push(runner);
+            animations.push(toAnimation.start());
           }
 
           forEach(anchorAnimations, function(animation) {
             animations.push(animation.start());
           });
 
-          return $qRaf.all(animations);
+          var promise = $qRaf.all(animations);
+          return $animateRunner(promise, {
+            end: endFn,
+            cancel: endFn // CSS-driven animations cannot be cancelled, only ended
+          });
+
+          function endFn() {
+            forEach(animations, function(animation) {
+              animation.end();
+            });
+          }
         }
       }
     }
 
     function prepareRegularAnimation(details) {
       var element = details.element;
-      var event = details.event;
-      var domOperation = details.domOperation || noop;
-
       var options = details.options || {};
+
+      var event = details.event;
       options.event = event;
 
-      if (event === 'enter' || event === 'move') {
-        domOperation();
+      // we special case the leave animation since we want to ensure that
+      // the element is removed as soon as the animation is over. Otherwise
+      // a flicker might appear or the element may not be removed at all
+      if (event === 'leave' && details.domOperation) {
+        options.onDone = details.domOperation;
       }
 
-      var runner = $animateCss(element, options);
-      if (runner) {
-        runner.domOperation = (event === 'leave' && domOperation) || noop;
-      }
-
-      return runner;
+      return $animateCss(element, options);
     }
   }]
 }];

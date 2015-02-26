@@ -1,6 +1,6 @@
 'use strict';
 
-describe("ngAnimate $animateCss", function() {
+ddescribe("ngAnimate $animateCss", function() {
 
   beforeEach(module('ngAnimate'));
 
@@ -1908,11 +1908,24 @@ describe("ngAnimate $animateCss", function() {
 
         var options = {
           duration: 3,
-          from : { background: 'blue' }
+          from: { background: 'blue' }
         };
 
         var animator = $animateCss(element, options);
         expect(animator).toBeFalsy();
+      }));
+
+      it("should apply an inline transition if only [from] styles, but classes are added or removed and a duration is provided",
+        inject(function($animateCss, $rootElement) {
+
+        var options = {
+          duration: 3,
+          addClass: 'sugar',
+          from: { background: 'yellow' }
+        };
+
+        var animator = $animateCss(element, options);
+        expect(animator).toBeTruthy();
       }));
 
       it("should not apply an inline transition if no styles are provided",

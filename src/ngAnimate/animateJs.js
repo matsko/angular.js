@@ -38,7 +38,9 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
           afterFn = event;
         }
 
-        before = packageAnimations(element, event, options, animations, beforeFn);
+        if (event !== 'enter' && event !== 'move') {
+          before = packageAnimations(element, event, options, animations, beforeFn);
+        }
         after  = packageAnimations(element, event, options, animations, afterFn);
       }
 
@@ -156,55 +158,41 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
     }
 
     function groupEventedAnimations(element, event, options, animations, fnName) {
-      var asyncOperations = [];
-      var syncOperations = [];
+      var operations = [];
       forEach(animations, function(ani) {
         var animation = ani[fnName];
-        if (animation) {
-          // beforeMove and beforeEnter MUST be synchronous. This ensures that
-          // the DOM operation happens at the right time for things to work properly
-          var syncAnimation = fnName == 'beforeEnter' || fnName == 'beforeMove';
-          if (syncAnimation) {
-            syncOperations.push(function() {
-              return executeAnimationFn(animation, element, event, options);
-            });
-          } else {
-            // note that all of these animations should run in parallel
-            asyncOperations.push(function(activeAnimations) {
-              var defer = $qRaf.defer();
-              var resolved = false;
-              var doneFn = noop;
-              var onAnimationComplete = function(rejected) {
-                if(!resolved) {
-                  doneFn(rejected);
-                  resolved = true;
-                }
-              };
-              doneFn = executeAnimationFn(animation, element, event, options, function(result) {
-                var cancelled = result === false;
-                onAnimationComplete(cancelled);
+        if (!animation) return;
 
-                // the callback function is the only code that can resolve the animation to
-                // continue forward ...
-                cancelled ? defer.reject() : defer.resolve();
-              });
-              // ... otherwise if cancelled or ended directly then the animation chain will not continue
-              activeAnimations.push(onAnimationComplete);
-              return defer.promise;
-            });
-          }
-        }
+        // note that all of these animations will run in parallel
+        operations.push(function(activeAnimations) {
+          var defer = $qRaf.defer();
+          var resolved = false;
+          var doneFn = noop;
+          var onAnimationComplete = function(rejected) {
+            if(!resolved) {
+              doneFn(rejected);
+              resolved = true;
+            }
+          };
+          doneFn = executeAnimationFn(animation, element, event, options, function(result) {
+            var cancelled = result === false;
+            onAnimationComplete(cancelled);
+
+            // the callback function is the only code that can resolve the animation to
+            // continue forward ...
+            cancelled ? defer.reject() : defer.resolve();
+          });
+          // ... otherwise if cancelled or ended directly then the animation chain will not continue
+          activeAnimations.push(onAnimationComplete);
+          return defer.promise;
+        });
       });
-
-      return (syncOperations.length || asyncOperations.length) && [syncOperations, asyncOperations];
+      return operations;
     }
 
     function packageAnimations(element, event, options, animations, fnName) {
       var operations = groupEventedAnimations(element, event, options, animations, fnName);
-      var syncOperations = [];
-      var asyncOperations = [];
-
-      if (!operations) {
+      if (operations.length === 0) {
         var a,b;
         if (fnName === 'beforeSetClass') {
           a = groupEventedAnimations(element, 'removeClass', options, animations, 'beforeRemoveClass');
@@ -213,30 +201,22 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
           a = groupEventedAnimations(element, 'removeClass', options, animations, 'removeClass');
           b = groupEventedAnimations(element, 'addClass', options, animations, 'addClass');
         }
+
         if (a) {
-          syncOperations = syncOperations.concat(a[0]);
-          asyncOperations = asyncOperations.concat(a[1]);
+          operations = operations.concat(a);
         }
         if (b) {
-          syncOperations = syncOperations.concat(b[0]);
-          asyncOperations = asyncOperations.concat(b[1]);
+          operations = operations.concat(b);
         }
-      } else {
-        syncOperations = operations[0];
-        asyncOperations = operations[1];
       }
 
-      if (!syncOperations.length && !asyncOperations.length) return;
+      if (operations.length === 0) return;
 
       return function(activeAnimations) {
-        forEach(syncOperations, function(op) {
-          op();
-        });
-
         var promises = [];
-        if (asyncOperations.length) {
-          forEach(asyncOperations, function(op) {
-            promises.push(op(activeAnimations));
+        if (operations.length) {
+          forEach(operations, function(animateFn) {
+            promises.push(animateFn(activeAnimations));
           });
         }
         return promises.length ? $qRaf.all(promises) : true;

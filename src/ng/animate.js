@@ -29,7 +29,6 @@ function $AnimateRunnerProvider() {
       obj.pause    = driver.pause  || obj.pause  || noop;
       obj.resume   = driver.resume || obj.resume || noop;
       obj.cancel   = driver.cancel || obj.cancel || noop;
-      obj.progress = obj.progress  || noop;
       return obj;
     };
   }];
@@ -42,7 +41,7 @@ var ngAnimateChildrenDirective = [function() {
       element.data(NG_ANIMATE_CHILDREN_DATA, true);
     } else {
       attrs.$observe('ngAnimateChildren', function(value) {
-        value = value === 'on' || value === 'true' || value === '1';
+        value = value === 'on' || value === 'true';
         element.data(NG_ANIMATE_CHILDREN_DATA, value);
       });
     }
@@ -53,50 +52,32 @@ var $AnimateProvider = [function() {
   var animationsEnabled = true;
 
   this.$get = ['$$animateQueue', '$$jqLite', function($$animateQueue, $$jqLite) {
-    function domInsertFactory(element, parent, after) {
-      return function domInsert() {
-        // if for some reason the previous element was removed
-        // from the dom sometime before this code runs then let's
-        // use stick to using the parent element as the anchor
-        // (this is common when evented-timelines are used)
-        if (after && after.parent().length == 0) {
-          after = null;
-        }
-        after ? after.after(element) : parent.append(element);
-      };
-    }
-
-    function appendCommentNodes(element, parent, after) {
-      var elementNode = element;
-      if (element.length > 1) {
-        forEach(element, function(node) {
-          if (node.nodeType === COMMENT_NODE) {
-            after ? after.after(node) : parent.append(node);
-          } else {
-            elementNode = angular.element(node);
-          }
-        });
+    function domInsert(element, parent, after) {
+      // if for some reason the previous element was removed
+      // from the dom sometime before this code runs then let's
+      // use stick to using the parent element as the anchor
+      // (this is common when evented-timelines are used)
+      if (after && after.parent().length == 0) {
+        after = null;
       }
-      return elementNode;
-    }
+      after ? after.after(element) : parent.append(element);
+    };
 
     return {
-      enabled : function() {
+      enabled: function() {
         return $$animateQueue.enabled.apply($$animateQueue, arguments);
       },
 
       enter : function(element, parent, after, options) {
-        element = appendCommentNodes(element, parent, after);
         parent = parent || after.parent();
-        return $$animateQueue.push(element, parent, 'enter', options,
-          domInsertFactory(element, parent, after));
+        domInsert(element, parent, after);
+        return $$animateQueue.push(element, parent, 'enter', options, noop);
       },
 
       move : function(element, parent, after, options) {
-        element = appendCommentNodes(element, parent, after);
         parent = parent || after.parent();
-        return $$animateQueue.push(element, parent, 'move', options,
-          domInsertFactory(element, parent, after));
+        domInsert(element, parent, after);
+        return $$animateQueue.push(element, parent, 'move', options, noop);
       },
 
       leave: function(element, options) {
@@ -139,7 +120,14 @@ var $AnimateProvider = [function() {
         }
       },
 
-      animate: function(element, add, remove, options) {
+      animate: function(element, from, to, className, options) {
+        options = options || {};
+        options.from = options.from ? extend(options.from, from) : from;
+        options.to   = options.to   ? extend(options.to, to)     : to;
+
+        var className = className || 'ng-inline-animate';
+        options.tempClassName = mergeClasses(options.tempClassName, className);
+        return $$animateQueue.push(element, element.parent(), 'animate', options, noop);
       }
     };
   }];
@@ -148,8 +136,6 @@ var $AnimateProvider = [function() {
 function $$AnimateQueueProvider() {
   var PRE_DIGEST_STATE = 1;
   var RUNNING_STATE = 2;
-  var BLOCKED_STATE = 3;
-  var QUEUED_STATE = 4;
 
   var rules = this.rules = {
     skip : [],
@@ -492,28 +478,15 @@ function $$AnimateQueueProvider() {
 
     function closeParentClassBasedAnimations(startingElement) {
       var parentNode = startingElement[0];
-      var flaggedNodes = {};
       do {
         if (!parentNode || parentNode.nodeType !== ELEMENT_NODE) break;
 
-        // if for some reason an earlier animation never completed or a move
-        // operation resulted in the parent node switching to a decendant node
-        // then we may end up having a cycle in the graph traversal. This check
-        // ensures that does not end up happening
-        if (flaggedNodes[parentNode.$$hashKey]) break;
-
-        var nextParentNode = parentNode.parentNode;
         var details = activeAnimationsLookup.get(parentNode);
         if (details) {
-          flaggedNodes[parentNode.$$hashKey] = true;
           examineParentAnimation(parentNode, details);
-
-          if (details.parent && details.parent.length) {
-            nextParentNode = details.parent[0];
-          }
         }
 
-        parentNode = nextParentNode;
+        parentNode = parentNode.parentNode;
       } while(true);
 
       // since animations are detected from CSS classes, we need to flush all parent
@@ -537,7 +510,6 @@ function $$AnimateQueueProvider() {
       var parentAnimationDetected = false;
       var animateChildren;
 
-      var flaggedNodes = {};
       while(parent && parent.length) {
         var parentNode = parent[0];
         if (parentNode.nodeType !== ELEMENT_NODE) {
@@ -545,22 +517,12 @@ function $$AnimateQueueProvider() {
           break;
         }
 
-        // if for some reason an earlier animation never completed or a move
-        // operation resulted in the parent node switching to a decendant node
-        // then we may end up having a cycle in the graph traversal. This check
-        // ensures that does not end up happening
-        if (flaggedNodes[parentNode.$$hashKey]) break;
-
-        var details = activeAnimationsLookup.get(parentNode);
-        if (details) {
-          flaggedNodes[parentNode.$$hashKey] = true;
-        }
-
+        var details = activeAnimationsLookup.get(parentNode) || {};
         // either an enter, leave or move animation will commence
         // therefore we can't allow any animations to take place
         // but if a parent animation is class-based then that's ok
         if (!parentAnimationDetected) {
-          parentAnimationDetected = (details && details.structural) || disabledElementsLookup.get(parentNode);
+          parentAnimationDetected = details.structural || disabledElementsLookup.get(parentNode);
         }
 
         if (isUndefined(animateChildren) || animateChildren === true) {
@@ -582,11 +544,7 @@ function $$AnimateQueueProvider() {
           bodyElementDetected = isMatchingElement(parent, bodyElement);
         }
 
-        // since we deal with enter and move later on, the parent may not be present in the DOM,
-        // however we do place a pointer to the new parent in the animation definition
-        parent = details && details.parent && details.parent.length
-            ? details.parent
-            : parent.parent();
+        parent = parent.parent();
       }
 
       var allowAnimation = !parentAnimationDetected || animateChildren;

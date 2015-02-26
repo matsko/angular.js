@@ -281,11 +281,12 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       var setupClasses = [structuralClassName, addRemoveClassName].join(' ').trim();
       var fullClassName =  classes + ' ' + setupClasses;
       var activeClasses = pendClasses(setupClasses, '-active');
-      var hasStyles = styles.to && Object.keys(styles.to).length > 0;
+      var hasFromStyles = styles.from && Object.keys(styles.from).length > 0;
+      var hasToStyles = styles.to && Object.keys(styles.to).length > 0;
 
       // there is no way we can trigger an animation since no styles or
       // no classes are being applied which would then trigger a transition
-      if (!hasStyles && !setupClasses) {
+      if (!hasToStyles && !setupClasses) {
         close();
         return false;
       }
@@ -340,8 +341,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       flags.hasTransitions          = timings.transitionDuration > 0;
       flags.hasAnimations           = timings.animationDuration > 0;
       flags.hasTransitionAll        = flags.hasTransitions && timings.transitionProperty == 'all';
-      flags.applyStyles             = hasStyles && maxDuration > 0;
-      flags.applyTransitionDuration = hasStyles && (
+      flags.applyTransitionDuration = hasToStyles && (
                                         (flags.hasTransitions && !flags.hasTransitionAll)
                                          || (flags.hasAnimations && !flags.hasTransitions));
       flags.applyAnimationDuration   = options.duration && flags.hasAnimations;
@@ -422,7 +422,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
               : gcsLookup.count(cacheKey) - 1
           : 0;
       if (!options.skipBlocking) {
-        flags.blockTransition = hasStyles || (structural && timings.transitionDuration > 0);
+        flags.blockTransition = hasToStyles || (structural && timings.transitionDuration > 0);
         flags.blockAnimation = timings.animationDuration > 0 &&
                                stagger.animationDelay > 0 &&
                                stagger.animationDuration === 0;
@@ -486,6 +486,15 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
 
         applyClasses();
         applyStyles(true, true);
+
+        // the reason why we have this option is to allow a synchronous closing callback
+        // that is fired as SOON as the animation ends (when the CSS is removed) or if
+        // the animation never takes off at all. A good example is a leave animation since
+        // the element must be removed just after the animation is over or else the element
+        // will appear on screen for one animation frame causing an overbearing flicker.
+        if (options.onDone) {
+          options.onDone();
+        }
 
         // if the preparation function fails then the promise is not setup
         if (defered) {

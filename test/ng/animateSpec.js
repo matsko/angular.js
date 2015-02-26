@@ -66,7 +66,7 @@ ddescribe("animations", function() {
   });
 
   describe('$animateRunner', function() {
-    var METHODS = ['pause', 'end', 'resume', 'cancel', 'next', 'progress'];
+    var METHODS = ['pause', 'end', 'resume', 'cancel', 'next'];
 
     it('should wrap the runner around a promise object', inject(function($q, $animateRunner) {
       var promise = $q.when(true);
@@ -220,32 +220,36 @@ ddescribe("animations", function() {
       }));
     });
 
-    it('enter() should issue an enter animation and fire the DOM operation right away', inject(function($animate, $rootScope) {
+    it('enter() should issue an enter animation and fire the DOM operation right away before the animation kicks off', inject(function($animate, $rootScope) {
+      expect(parent.children().length).toBe(0);
+
       $animate.enter(element, parent, null, options);
+
+      expect(parent.children().length).toBe(1);
+
       $rootScope.$digest();
+
       expect(capturedAnimation[0]).toBe(element);
       expect(capturedAnimation[1]).toBe('enter');
       expect(capturedAnimation[2]).toEqual(options);
-
-      expect(parent.children().length).toBe(0);
-      capturedAnimation[3]();
-      expect(parent.children().length).toBe(1);
     }));
 
-    it('move() should issue an enter animation and fire the DOM operation right away', inject(function($animate, $rootScope) {
+    it('move() should issue an enter animation and fire the DOM operation right away before the animation kicks off', inject(function($animate, $rootScope) {
       parent.append(element);
+
+      expect(parent.children().length).toBe(1);
+      expect(parent2.children().length).toBe(0);
+
       $animate.move(element, parent2, null, options);
+
+      expect(parent.children().length).toBe(0);
+      expect(parent2.children().length).toBe(1);
+
       $rootScope.$digest();
 
       expect(capturedAnimation[0]).toBe(element);
       expect(capturedAnimation[1]).toBe('move');
       expect(capturedAnimation[2]).toEqual(options);
-
-      expect(parent.children().length).toBe(1);
-      expect(parent2.children().length).toBe(0);
-      capturedAnimation[3]();
-      expect(parent.children().length).toBe(0);
-      expect(parent2.children().length).toBe(1);
     }));
 
     they('$prop() should insert the element adjacent to the after element if provided',
@@ -253,14 +257,11 @@ ddescribe("animations", function() {
 
       inject(function($animate, $rootScope) {
         parent.append(element);
-        $animate[event](element, null, parent2, options);
-        $rootScope.$digest();
-
-        expect(capturedAnimation[1]).toBe(event);
-
         expect(parent2.next()).not.toEqual(element);
-        capturedAnimation[3]();
+        $animate[event](element, null, parent2, options);
         expect(parent2.next()).toEqual(element);
+        $rootScope.$digest();
+        expect(capturedAnimation[1]).toBe(event);
       });
     });
 
@@ -598,7 +599,10 @@ ddescribe("animations", function() {
       it('multiple class-based animations together into a single structural event before the digest passes', inject(function($animate, $rootScope) {
         element.addClass('green');
 
+        expect(element.parent().length).toBe(0);
         $animate.enter(element, parent);
+        expect(element.parent().length).toBe(1);
+
         $animate.addClass(element, 'red');
         $animate.removeClass(element, 'green');
 
@@ -611,11 +615,9 @@ ddescribe("animations", function() {
         expect(options.addClass).toEqual('red');
         expect(options.removeClass).toEqual('green');
 
-        expect(element.parent().length).toBe(0);
         expect(element).not.toHaveClass('red');
         expect(element).toHaveClass('green');
         capturedAnimation[3]();
-        expect(element.parent().length).toBe(1);
         expect(element).toHaveClass('red');
         expect(element).not.toHaveClass('green');
       }));

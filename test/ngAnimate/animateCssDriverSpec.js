@@ -1,6 +1,6 @@
 'use strict';
 
-describe("ngAnimate $$animateCssDriver", function() {
+ddescribe("ngAnimate $$animateCssDriver", function() {
 
   beforeEach(module('ngAnimate'));
 
@@ -80,27 +80,6 @@ describe("ngAnimate $$animateCssDriver", function() {
       var runner = driver({ element: element });
       expect(isFunction(runner.start)).toBeTruthy();
     }));
-
-    they("should call the DOM operation right away if an $prop animation is run",
-      ['enter', 'move'], function(event) {
-
-      inject(function() {
-        var spy = jasmine.createSpy();
-        driver({
-          element: element,
-          event: 'leave',
-          domOperation: spy
-        });
-        expect(spy).not.toHaveBeenCalled();
-
-        driver({
-          element: element,
-          event: event,
-          domOperation: spy
-        });
-        expect(spy).toHaveBeenCalled();
-      });
-    });
   });
 
   describe("anchored animations", function() {
@@ -134,12 +113,99 @@ describe("ngAnimate $$animateCssDriver", function() {
     });
 
     it("should return a start method", inject(function() {
-      var runner = driver({
+      var animator = driver({
         from: fromAnimation,
         to: toAnimation
       });
-      expect(isFunction(runner.start)).toBeTruthy();
+      expect(isFunction(animator.start)).toBeTruthy();
     }));
+
+    they("should return a runner with a $prop() method which will end the animation",
+      ['end', 'cancel'], function(method) {
+
+      var closeAnimation;
+      module(function($provide) {
+        $provide.factory('$animateCss', function($q, $animateRunner) {
+          return function() {
+            return {
+              start : function() {
+                var promise = $q.when(true);
+                return $animateRunner(promise, {
+                  end : function() {
+                    closeAnimation();
+                  },
+                });
+              }
+            };
+          }
+        });
+      });
+
+      inject(function() {
+        var animator = driver({
+          from: fromAnimation,
+          to: toAnimation
+        });
+
+        var animationClosed = false;
+        closeAnimation = function() {
+          animationClosed = true;
+        };
+
+        var runner = animator.start();
+
+        expect(isFunction(runner[method])).toBe(true);
+        runner[method]();
+        expect(animationClosed).toBe(true);
+      });
+    });
+
+    it("should end the animation for each of the from and to elements as well as all the anchors", function() {
+      var closeLog = {};
+      module(function($provide) {
+        $provide.factory('$animateCss', function($q, $animateRunner) {
+          return function(element, options) {
+            var type = options.event || 'anchor';
+            closeLog[type] = closeLog[type] || [];
+            return {
+              start : function() {
+                var promise = $q.when(true);
+                return $animateRunner(promise, {
+                  end : function() {
+                    closeLog[type].push(element);
+                  }
+                });
+              }
+            };
+          }
+        });
+      });
+
+      inject(function() {
+        //we'll just use one animation to make the test smaller
+        var anchorAnimation = {
+          'in': jqLite('<div></div>'),
+          'out': jqLite('<div></div>')
+        };
+
+        var animator = driver({
+          from: fromAnimation,
+          to: toAnimation,
+          anchors: [
+            anchorAnimation,
+            anchorAnimation,
+            anchorAnimation
+          ]
+        });
+
+        var runner = animator.start();
+        runner.end();
+
+        expect(closeLog.enter[0]).toEqual(fromAnimation.element);
+        expect(closeLog.leave[0]).toEqual(toAnimation.element);
+        expect(closeLog.anchor.length).toBe(3);
+      });
+    });
 
     it("should render an animation on both the from and to elements", inject(function() {
       captureFn = function(element, details) {
@@ -719,24 +785,25 @@ describe("ngAnimate $$animateCssDriver", function() {
       expect(clonedAnchor.parent().length).toBe(0);
     }));
 
-    it("should run the provided domOperation right after the element is animated if a leave animation is run",
+    it("should pass the provided domOperation into $animateCss to be run right after the element is animated if a leave animation is present",
       inject(function($rootElement, $$rAF) {
 
       toAnimation.event = 'enter';
       fromAnimation.event = 'leave';
 
-      var spy = jasmine.createSpy();
-      fromAnimation.domOperation = spy;
+      var leaveOp = function() { };
+      fromAnimation.domOperation = leaveOp;
 
       driver({
         from: fromAnimation,
         to: toAnimation
       }).start();
 
-      expect(spy).not.toHaveBeenCalled();
-      captureLog.shift().defered.resolve();
-      $$rAF.flush();
-      expect(spy).toHaveBeenCalled();
+      var leaveAnimation = captureLog.shift();
+      var enterAnimation = captureLog.shift();
+
+      expect(leaveAnimation.args[1].onDone).toBe(leaveOp);
+      expect(enterAnimation.args[1].onDone).toBeUndefined();
     }));
 
     it("should fire the returned runner promise when the from, to and anchor animations are all complete",
