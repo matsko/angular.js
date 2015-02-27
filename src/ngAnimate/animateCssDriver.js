@@ -24,6 +24,14 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
       return classes.replace(/\bng-\S+\b/g, '');
     }
 
+    function getUniqueValues(a, b) {
+      if (isString(a)) a = a.split(' ');
+      if (isString(b)) b = b.split(' ');
+      return a.filter(function(val) {
+        return b.indexOf(val) === -1;
+      }).join(' ');
+    }
+
     function prepareAnchoredAnimation(classes, outAnchor, inAnchor) {
       var clone = jqLite(outAnchor[0].cloneNode(true));
       var startingClasses = filterCssClasses(clone.attr('class') || '');
@@ -41,7 +49,7 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
       if (!animatorOut) return end();
 
       return {
-        start : function() {
+        start: function() {
           var currentAnimation = animatorOut.start();
           promise = currentAnimation.then(function() {
             currentAnimation = null;
@@ -102,18 +110,10 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
         var classes = getUniqueValues(endingClasses, startingClasses);
         return $animateCss(clone, {
           to: calculateAnchorStyles(inAnchor),
+          addClass: 'in ' + classes,
           removeClass: 'out ' + startingClasses,
-          delay: true,
-          addClass: 'in ' + classes
+          delay: true
         });
-      }
-
-      function getUniqueValues(a, b) {
-        if (isString(a)) a = a.split(' ');
-        if (isString(b)) b = b.split(' ');
-        return a.filter(function(val) {
-          return b.indexOf(val) === -1;
-        }).join(' ');
       }
 
       function end() {
@@ -129,7 +129,9 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
 
       var anchorAnimations = [];
       forEach(anchors, function(anchor) {
-        var animator = prepareAnchoredAnimation(classes, anchor['out'], anchor['in']);
+        var outElement = anchor['out'];
+        var inElement = anchor['in'];
+        var animator = prepareAnchoredAnimation(classes, outElement, inElement);
         if (animator) {
           anchorAnimations.push(animator);
         }
@@ -140,7 +142,8 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
 
       return {
         start : function() {
-          var runner, animations = [];
+          var animations = [];
+
           if (fromAnimation) {
             animations.push(fromAnimation.start());
           }
@@ -172,13 +175,11 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
       var element = details.element;
       var options = details.options || {};
 
-      var event = details.event;
-      options.event = event;
-
       // we special case the leave animation since we want to ensure that
       // the element is removed as soon as the animation is over. Otherwise
       // a flicker might appear or the element may not be removed at all
-      if (event === 'leave' && details.domOperation) {
+      options.event = details.event;
+      if (options.event === 'leave' && details.domOperation) {
         options.onDone = details.domOperation;
       }
 

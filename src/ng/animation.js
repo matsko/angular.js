@@ -13,6 +13,20 @@ var $AnimationProvider = ['$provide', function($provide) {
     $provide.factory(key, factory);
   };
 
+  var RUNNER_STORAGE_KEY = '$animationRunner';
+
+  function setRunner(element, runner) {
+    element.data(RUNNER_STORAGE_KEY, runner);
+  };
+
+  function removeRunner(element) {
+    element.removeData(RUNNER_STORAGE_KEY);
+  }
+
+  function getRunner(element) {
+    return element.data(RUNNER_STORAGE_KEY);
+  };
+
   this.$get = ['$qRaf', '$injector', '$animateRunner', '$rootScope',
        function($qRaf,   $injector,   $animateRunner,   $rootScope) {
 
@@ -24,29 +38,56 @@ var $AnimationProvider = ['$provide', function($provide) {
       var domOperationCalled = false;
       options.domOperation = domOperation = function() {
         if (!domOperationCalled) {
-          _domOperation();
           domOperationCalled = true;
+          _domOperation();
         }
       }
 
-      var defered = $qRaf.defer();
-      var runner = $animateRunner(defered.promise);
+      var deferred = $qRaf.defer();
+
+      // there is no animation at the current moment, however
+      // these runner methods will get later updated with the
+      // methods leading into the driver's end/cancel methods
+      // for now they just stop the animation from starting
+      var endFnFactory = function(cancelled) {
+        return function() {
+          close(cancelled);
+        };
+      };
+
+      var runner = $animateRunner(deferred.promise,
+        { end: endFnFactory(), cancel: endFnFactory(true) }
+      );
+
       if (!$$drivers.length) {
         close();
         return runner;
       }
 
-      var tempClassName = options.tempClassName;
+      setRunner(element, runner);
+
       var classes = mergeClasses(element.attr('class'), mergeClasses(options.addClass, options.removeClass));
+      var tempClassName = options.tempClassName;
+      if (tempClassName) {
+        classes += ' ' + tempClassName;
+      }
+
       animationQueue.push({
+        // this data is used by the postDigest code and passed into
+        // the driver step function
         element: element,
         classes: classes,
         event: event,
-        start: start,
-        close: close,
         options: options,
-        domOperation: domOperation
+        domOperation: domOperation,
+
+        // these methods are used as scoped reference points by
+        // the animator loop and they are not passed into the driver
+        start: start,
+        close: close
       });
+
+      element.on('$destroy', handleDestroyedElement);
 
       // we only want there to be one function called within the post digest
       // block. This way we can group animations for all the animations that
@@ -54,28 +95,39 @@ var $AnimationProvider = ['$provide', function($provide) {
       if (animationQueue.length > 1) return runner;
 
       $rootScope.$$postDigest(function() {
-        var animations = groupAnimations(animationQueue);
+        var animations = [];
+        forEach(animationQueue, function(entry) {
+          // the element was destroyed early on which removed the runner
+          // form its storage. This means we can't animate this element
+          // at all and it already has been closed due to destruction.
+          if (getRunner(entry.element)) {
+            animations.push(entry);
+          }
+        });
 
         // now any future animations will be in another postDigest
         animationQueue.length = 0;
 
-        forEach(animations, function(animationEntry) {
+        forEach(groupAnimations(animations), function(animationEntry) {
+          var startFn = animationEntry.start;
+          var closeFn = animationEntry.close;
+          delete animationEntry.start;
+          delete animationEntry.close;
+
           var operation = invokeFirstDriver(animationEntry);
           var startAnimation = operation && (isFunction(operation) ? operation : operation.start);
           if (!startAnimation) {
-            animationEntry.close();
+            closeFn();
           } else {
-            animationEntry.start();
+            startFn();
             var animationRunner = startAnimation();
             animationRunner.then(function() {
-              animationEntry.close();
+              closeFn();
             }, function() {
-              animationEntry.close(true);
+              closeFn(true);
             });
 
-            if (isPromiseLike(animationRunner)) {
-              $animateRunner(runner, animationRunner);
-            }
+            updateAnimationRunners(animationEntry, animationRunner);
           }
         });
       });
@@ -93,7 +145,8 @@ var $AnimationProvider = ['$provide', function($provide) {
         var preparedAnimations = [];
         var refLookup = {};
         forEach(animations, function(animation, index) {
-          var node = animation.element[0];
+          var element = animation.element;
+          var node = element[0];
           var event = animation.event;
           var enterOrMove = ['enter', 'move'].indexOf(event) >= 0;
           var structural = enterOrMove || event === 'leave';
@@ -210,7 +263,32 @@ var $AnimationProvider = ['$provide', function($provide) {
         }
       }
 
+      function updateAnimationRunners(animation, newRunner) {
+        if (animation.from && animation.to) {
+          update(animation.from.element);
+          update(animation.to.element);
+        } else {
+          update(animation.element);
+        }
+
+        function update(element) {
+          $animateRunner(getRunner(element), newRunner);
+        }
+      }
+
+      function handleDestroyedElement() {
+        var runner = getRunner(element);
+        // a special case for leave animations since when the element
+        // is destroyed then the underlying animation is closed anyway
+        if (runner && (event !== 'leave' || !domOperationCalled)) {
+          runner.end();
+        }
+      }
+
       function close(failure) {
+        element.off('$destroy', handleDestroyedElement);
+        removeRunner(element);
+
         if (!domOperationCalled) {
           domOperation();
         }
@@ -220,7 +298,7 @@ var $AnimationProvider = ['$provide', function($provide) {
         }
 
         element.removeClass(NG_ANIMATE_CLASSNAME);
-        failure ? defered.reject() : defered.resolve();
+        failure ? deferred.reject() : deferred.resolve();
       }
     };
   }];

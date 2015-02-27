@@ -258,7 +258,14 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       var method = options.event && isArray(options.event)
             ? options.event.join(' ')
             : options.event;
-      var structural = method && [' addClass ',' removeClass '].indexOf(' ' + method + ' ') == -1;
+
+      // despite any of these methods being a valid event, we special case pure
+      // class-based animations so that we can avoid applying CSS blocking on
+      // the element to allow for normal transitions to work (this is how enter,
+      // leave and move can perform the `ng-EVENT` methods without causing an
+      // unpected transition animation to occur).
+      var structural = method &&
+                        [' setClass ', ' addClass ',' removeClass '].indexOf(' ' + method + ' ') == -1;
 
       var structuralClassName = '';
       var addRemoveClassName = '';
@@ -281,7 +288,6 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       var setupClasses = [structuralClassName, addRemoveClassName].join(' ').trim();
       var fullClassName =  classes + ' ' + setupClasses;
       var activeClasses = pendClasses(setupClasses, '-active');
-      var hasFromStyles = styles.from && Object.keys(styles.from).length > 0;
       var hasToStyles = styles.to && Object.keys(styles.to).length > 0;
 
       // there is no way we can trigger an animation since no styles or
