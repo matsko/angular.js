@@ -1,6 +1,69 @@
 'use strict';
 
-var $$AnimateOptions = [function() {
+var $$AnimateOptionsFactory = ['$$jqLite', function($$jqLite) {
+  var KEY = '$$animate';
+
+  return function(element, options) {
+    options = options || {};
+    if (options.$$element === element) return options;
+
+    return extend({
+      $$element: element,
+
+      $merge: function(newOptions) {
+        mergeOptions(element, this, newOptions);
+        return this;
+      },
+
+      $domOperation: function() {
+        var domOperation = this.$use('domOperation');
+        (domOperation || noop)();
+      },
+
+      $applyClasses: function(key) {
+        var addClass = this.$use('addClass');
+        if (addClass) {
+          $$jqLite.addClass(element, addClass);
+        }
+
+        var removeClass = this.$use('removeClass');
+        if (removeClass) {
+          $$jqLite.removeClass(element, removeClass);
+        }
+      },
+
+      $applyStyles: function(from, to) {
+        from = isDefined(from) ? from : true;
+        if (from) {
+          var fromStyles = this.$use('from');
+          if (fromStyles) {
+            element.css(fromStyles);
+          }
+        }
+
+        to = isDefined(to) ? to : true;
+        if (to) {
+          var toStyles = this.$use('to');
+          if (toStyles) {
+            element.css(toStyles);
+          }
+        }
+      },
+
+      $use: function(key) {
+        var usedKey = '$' + key + 'Used';
+        if (!this[usedKey]) {
+          this[usedKey] = true;
+          return this[key];
+        }
+      },
+
+      $used: function(key) {
+        return this['$' + key + 'Used'];
+      }
+    }, options);
+  };
+
   function splitClasses(classes) {
     if (isString(classes)) {
       classes = classes.split(' ');
@@ -80,68 +143,4 @@ var $$AnimateOptions = [function() {
       delete target.removeClass;
     }
   }
-
-  this.$get = ['$$jqLite', function($$jqLite) {
-    var KEY = '$$animate';
-    return function(element, options) {
-      options = options || {};
-      if (options.$$element === element) return options;
-
-      return extend({
-        $$element: element,
-
-        $domOperation: function() {
-          var domOperation = this.$use('domOperation');
-          (domOperation || noop)();
-        },
-
-        $merge: function(newOptions) {
-          mergeOptions(element, this, newOptions);
-          return this;
-        },
-
-        $applyClasses: function(key) {
-          var addClass = this.$use('addClass');
-          if (addClass) {
-            $$jqLite.addClass(element, addClass);
-          }
-
-          var removeClass = this.$use('removeClass');
-          if (removeClass) {
-            $$jqLite.removeClass(element, removeClass);
-          }
-        },
-
-        $applyStyles: function(from, to) {
-          from = isDefined(from) ? from : true;
-          if (from) {
-            var fromStyles = this.$use('from');
-            if (fromStyles) {
-              element.css(fromStyles);
-            }
-          }
-
-          to = isDefined(to) ? to : true;
-          if (to) {
-            var toStyles = this.$use('to');
-            if (toStyles) {
-              element.css(toStyles);
-            }
-          }
-        },
-
-        $use: function(key) {
-          var usedKey = '$' + key + 'Used';
-          if (!this[usedKey]) {
-            this[usedKey] = true;
-            return this[key];
-          }
-        },
-
-        $used: function(key) {
-          return this['$' + key + 'Used'];
-        }
-      }, options);
-    }
-  }];
 }];

@@ -3,10 +3,11 @@
 angular.module('ngAnimate', [])
   .directive('ngAnimateChildren', $$AnimateChildrenDirective)
 
-  .provider('$$animation', $$AnimationProvider)
   .factory('$$animateRunner', $$AnimateRunnerFactory)
+  .factory('$$animateOptions', $$AnimateOptionsFactory)
 
   .provider('$$animateQueue', $$AnimateQueueProvider)
+  .provider('$$animation', $$AnimationProvider)
 
   .provider('$animateCss', $AnimateCssProvider)
   .provider('$$animateCssDriver', $$AnimateCssDriverProvider)

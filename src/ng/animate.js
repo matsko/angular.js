@@ -14,19 +14,17 @@ function mergeClasses(a,b) {
 // this is prefixed with Core since it conflicts with
 // the animateProvider defined in ngAnimate/animate.js
 var $$CoreAnimateQueueProvider = [function() {
-  this.$get = ['$qRaf', '$$animateOptions', function($qRaf, $$animateOptions) {
+  this.$get = ['$qRaf', function($qRaf) {
     return {
       enabled: noop,
 
       push: function(element, event, options, domOperation) {
-        if (domOperation) {
-          domOperation();
-        }
-        if (options) {
-          options = $$animateOptions(element, options);
-          options.$applyClasses();
-          options.$applyStyles();
-        }
+        options = options || {};
+        domOperation        && domOperation();
+        options.addClass    && $$jqLite.addClass(element, options.addClass);
+        options.removeClass && $$jqLite.removeClass(element, options.removeClass);
+        options.from        && element.css(options.from);
+        options.to          && element.css(options.to);
         return $qRaf.when(true);
       }
     }
@@ -47,6 +45,8 @@ var $AnimateProvider = [function() {
 
     return {
       enabled: function() {
+        // we don't call it directly since non-existant arguments may
+        // be interpreted as null within the sub enabled function
         return $$animateQueue.enabled.apply($$animateQueue, arguments);
       },
 

@@ -14,7 +14,6 @@ var angularFiles = {
 
     'src/ng/anchorScroll.js',
     'src/ng/animate.js',
-    'src/ng/animateOptions.js',
     'src/ng/asyncCallback.js',
     'src/ng/browser.js',
     'src/ng/cacheFactory.js',
@@ -94,6 +93,7 @@ var angularFiles = {
       'src/ngAnimate/animateCssDriver.js',
       'src/ngAnimate/animateJs.js',
       'src/ngAnimate/animateJsDriver.js',
+      'src/ngAnimate/animateOptions.js',
       'src/ngAnimate/animateQueue.js',
       'src/ngAnimate/animateRunner.js',
       'src/ngAnimate/animation.js',

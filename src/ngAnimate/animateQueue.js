@@ -117,14 +117,14 @@ var $$AnimateQueueProvider = [function() {
     }
 
     return {
-      push : function(element, event, options, domOperation) {
+      push: function(element, event, options, domOperation) {
         element = stripCommentsFromElement(element);
         options = options || {};
         options.domOperation = domOperation;
         return queueAnimation(element, event, options);
       },
 
-      enabled : function(bool) {
+      enabled: function(bool) {
         var argCount = arguments.length;
         if (isElement(bool)) {
           var element = bool;
