@@ -1,11 +1,28 @@
 'use strict';
 
-var noop     = angular.noop;
-var jqLite   = angular.element;
-var forEach  = angular.forEach;
-var isArray  = angular.isArray;
-var isString = angular.isString;
-var isObject = angular.isObject;
+var noop        = angular.noop;
+var extend      = angular.extend;
+var jqLite      = angular.element;
+var forEach     = angular.forEach;
+var isArray     = angular.isArray;
+var isString    = angular.isString;
+var isObject    = angular.isObject;
+var isUndefined = angular.isUndefined;
+var isDefined   = angular.isDefined;
+var isFunction  = angular.isFunction;
+
+var isPromiseLike = function(p) {
+  return p && p.then;
+}
+
+function mergeClasses(a,b) {
+  if (!a && !b) return '';
+  if (!a) return b;
+  if (!b) return a;
+  if (isArray(a)) a = a.join(' ');
+  if (isArray(b)) b = b.join(' ');
+  return a + ' ' + b;
+}
 
 function packageStyles(options) {
   var styles = {};

@@ -1,8 +1,10 @@
-var $AnimationProvider = ['$provide', function($provide) {
+'use strict';
+
+var $$AnimationProvider = ['$provide', function($provide) {
   var NG_ANIMATE_CLASSNAME = 'ng-animate';
   var NG_ANIMATE_REF_ATTR = 'ng-animate-ref';
 
-  var $$drivers = this.drivers = [];
+  var drivers = this.drivers = [];
 
   this.$$registeredAnimations = [];
   this.register = function(name, factory) {
@@ -27,39 +29,25 @@ var $AnimationProvider = ['$provide', function($provide) {
     return element.data(RUNNER_STORAGE_KEY);
   };
 
-  this.$get = ['$qRaf', '$injector', '$animateRunner', '$rootScope',
-       function($qRaf,   $injector,   $animateRunner,   $rootScope) {
+  this.$get = ['$qRaf', '$$jqLite', '$rootScope', '$injector', '$$animateRunner', '$$animateOptions',
+       function($qRaf,   $$jqLite,   $rootScope,   $injector,   $$animateRunner,   $$animateOptions) {
 
     var animationQueue = [];
 
-    return function(element, event, options, domOperation) {
-      options = options || {};
-      var _domOperation = domOperation || noop;
-      var domOperationCalled = false;
-      options.domOperation = domOperation = function() {
-        if (!domOperationCalled) {
-          domOperationCalled = true;
-          _domOperation();
-        }
-      }
-
+    return function(element, event, options) {
+      options = $$animateOptions(element, options);
       var deferred = $qRaf.defer();
 
       // there is no animation at the current moment, however
       // these runner methods will get later updated with the
       // methods leading into the driver's end/cancel methods
       // for now they just stop the animation from starting
-      var endFnFactory = function(cancelled) {
-        return function() {
-          close(cancelled);
-        };
-      };
+      var runner = $$animateRunner(deferred.promise, {
+        end: function() { close(); },
+        cancel: function() { close(true); }
+      });
 
-      var runner = $animateRunner(deferred.promise,
-        { end: endFnFactory(), cancel: endFnFactory(true) }
-      );
-
-      if (!$$drivers.length) {
+      if (!drivers.length) {
         close();
         return runner;
       }
@@ -67,7 +55,7 @@ var $AnimationProvider = ['$provide', function($provide) {
       setRunner(element, runner);
 
       var classes = mergeClasses(element.attr('class'), mergeClasses(options.addClass, options.removeClass));
-      var tempClassName = options.tempClassName;
+      var tempClassName = options.$use('tempClassName');
       if (tempClassName) {
         classes += ' ' + tempClassName;
       }
@@ -79,10 +67,6 @@ var $AnimationProvider = ['$provide', function($provide) {
         classes: classes,
         event: event,
         options: options,
-        domOperation: domOperation,
-
-        // these methods are used as scoped reference points by
-        // the animator loop and they are not passed into the driver
         start: start,
         close: close
       });
@@ -111,9 +95,6 @@ var $AnimationProvider = ['$provide', function($provide) {
         forEach(groupAnimations(animations), function(animationEntry) {
           var startFn = animationEntry.start;
           var closeFn = animationEntry.close;
-          delete animationEntry.start;
-          delete animationEntry.close;
-
           var operation = invokeFirstDriver(animationEntry);
           var startAnimation = operation && (isFunction(operation) ? operation : operation.start);
           if (!startAnimation) {
@@ -244,8 +225,8 @@ var $AnimationProvider = ['$provide', function($provide) {
       function invokeFirstDriver(details) {
         // we loop in reverse order since the more general drivers (like CSS and JS)
         // may attempt more elements, but custom drivers are more particular
-        for (var i = $$drivers.length - 1; i >= 0; i--) {
-          var driverName = $$drivers[i];
+        for (var i = drivers.length - 1; i >= 0; i--) {
+          var driverName = drivers[i];
           if (!$injector.has(driverName)) continue;
 
           var factory = $injector.get(driverName);
@@ -259,7 +240,7 @@ var $AnimationProvider = ['$provide', function($provide) {
       function start() {
         element.addClass(NG_ANIMATE_CLASSNAME);
         if (tempClassName) {
-          element.addClass(tempClassName);
+          $$jqLite.addClass(element, tempClassName);
         }
       }
 
@@ -272,33 +253,31 @@ var $AnimationProvider = ['$provide', function($provide) {
         }
 
         function update(element) {
-          $animateRunner(getRunner(element), newRunner);
+          $$animateRunner(getRunner(element), newRunner);
         }
       }
 
       function handleDestroyedElement() {
         var runner = getRunner(element);
-        // a special case for leave animations since when the element
-        // is destroyed then the underlying animation is closed anyway
-        if (runner && (event !== 'leave' || !domOperationCalled)) {
+        if (runner && (event !== 'leave' || !options.$used('domOperation'))) {
           runner.end();
         }
       }
 
-      function close(failure) {
+      function close(rejected) {
         element.off('$destroy', handleDestroyedElement);
         removeRunner(element);
 
-        if (!domOperationCalled) {
-          domOperation();
-        }
+        options.$applyStyles();
+        options.$applyClasses();
+        options.$domOperation();
 
         if (tempClassName) {
-          element.removeClass(tempClassName);
+          $$jqLite.removeClass(element, tempClassName);
         }
 
         element.removeClass(NG_ANIMATE_CLASSNAME);
-        failure ? deferred.reject() : deferred.resolve();
+        rejected ? deferred.reject() : deferred.resolve();
       }
     };
   }];

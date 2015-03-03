@@ -1,12 +1,12 @@
-var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvider) {
-  $animationProvider.drivers.push('$$animateCssDriver');
+var $$AnimateCssDriverProvider = ['$$animationProvider', function($$animationProvider) {
+  $$animationProvider.drivers.push('$$animateCssDriver');
 
   var NG_ANIMATE_SHIM_CLASS_NAME = 'ng-animate-shim';
   var NG_ANIMATE_ANCHOR_CLASS_NAME = 'ng-animate-anchor';
   var NG_ANIMATE_ANCHOR_SUFFIX = '-anchor';
 
-  this.$get = ['$qRaf', '$animateCss', '$rootScope', '$animateRunner', '$rootElement', '$document',
-       function($qRaf,   $animateCss,   $rootScope,   $animateRunner,   $rootElement,   $document) {
+  this.$get = ['$qRaf', '$animateCss', '$rootScope', '$$animateRunner', '$rootElement', '$document',
+       function($qRaf,   $animateCss,   $rootScope,   $$animateRunner,   $rootElement,   $document) {
 
     var bodyNode = $document[0].body;
     var rootNode = $rootElement[0];
@@ -65,7 +65,7 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
             end();
           });
 
-          return $animateRunner(promise, {
+          return $$animateRunner(promise, {
             end: endFn,
             cancel: endFn
           });
@@ -157,7 +157,7 @@ var $AnimateCssDriverProvider = ['$animationProvider', function($animationProvid
           });
 
           var promise = $qRaf.all(animations);
-          return $animateRunner(promise, {
+          return $$animateRunner(promise, {
             end: endFn,
             cancel: endFn // CSS-driven animations cannot be cancelled, only ended
           });

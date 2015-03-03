@@ -34,7 +34,7 @@ ddescribe("ngAnimate $$animateCssDriver", function() {
     captureLog = [];
     captureFn = noop;
 
-    $provide.factory('$animateCss', function($qRaf, $animateRunner) {
+    $provide.factory('$animateCss', function($qRaf, $$animateRunner) {
       return function() {
         var defered = $qRaf.defer();
 
@@ -46,7 +46,7 @@ ddescribe("ngAnimate $$animateCssDriver", function() {
           defered: defered
         });
 
-        var runner = $animateRunner(defered.promise);
+        var runner = $$animateRunner(defered.promise);
 
         return {
           start : function() {
@@ -58,7 +58,7 @@ ddescribe("ngAnimate $$animateCssDriver", function() {
 
     element = jqLite('<div></div>');
 
-    return function($$animateCssDriver, $q, $animateRunner, $document, $window) {
+    return function($$animateCssDriver, $q, $$animateRunner, $document, $window) {
       driver = $$animateCssDriver;
       ss = createMockStyleSheet($document, $window);
     };
@@ -125,12 +125,12 @@ ddescribe("ngAnimate $$animateCssDriver", function() {
 
       var closeAnimation;
       module(function($provide) {
-        $provide.factory('$animateCss', function($q, $animateRunner) {
+        $provide.factory('$animateCss', function($q, $$animateRunner) {
           return function() {
             return {
               start : function() {
                 var promise = $q.when(true);
-                return $animateRunner(promise, {
+                return $$animateRunner(promise, {
                   end : function() {
                     closeAnimation();
                   },
@@ -163,14 +163,14 @@ ddescribe("ngAnimate $$animateCssDriver", function() {
     it("should end the animation for each of the from and to elements as well as all the anchors", function() {
       var closeLog = {};
       module(function($provide) {
-        $provide.factory('$animateCss', function($q, $animateRunner) {
+        $provide.factory('$animateCss', function($q, $$animateRunner) {
           return function(element, options) {
             var type = options.event || 'anchor';
             closeLog[type] = closeLog[type] || [];
             return {
               start : function() {
                 var promise = $q.when(true);
-                return $animateRunner(promise, {
+                return $$animateRunner(promise, {
                   end : function() {
                     closeLog[type].push(element);
                   }

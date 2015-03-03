@@ -14,7 +14,6 @@
   selectDirective,
   styleDirective,
   optionDirective,
-  ngAnimateChildren,
   ngBindDirective,
   ngBindHtmlDirective,
   ngBindTemplateDirective,
@@ -58,9 +57,8 @@
 
   $AnchorScrollProvider,
   $AnimateProvider,
-  $$AnimateQueueProvider,
-  $AnimationProvider,
-  $AnimateRunnerProvider,
+  $$AnimateOptions,
+  $$CoreAnimateQueueProvider,
   $BrowserProvider,
   $CacheFactoryProvider,
   $ControllerProvider,
@@ -174,7 +172,6 @@ function publishExternalAPI(angular) {
             select: selectDirective,
             style: styleDirective,
             option: optionDirective,
-            ngAnimateChildren: ngAnimateChildrenDirective,
             ngBind: ngBindDirective,
             ngBindHtml: ngBindHtmlDirective,
             ngBindTemplate: ngBindTemplateDirective,
@@ -220,9 +217,8 @@ function publishExternalAPI(angular) {
       $provide.provider({
         $anchorScroll: $AnchorScrollProvider,
         $animate: $AnimateProvider,
-        $$animateQueue: $$AnimateQueueProvider,
-        $animation: $AnimationProvider,
-        $animateRunner: $AnimateRunnerProvider,
+        $$animateOptions: $$AnimateOptions,
+        $$animateQueue: $$CoreAnimateQueueProvider,
         $browser: $BrowserProvider,
         $cacheFactory: $CacheFactoryProvider,
         $controller: $ControllerProvider,
@@ -252,7 +248,8 @@ function publishExternalAPI(angular) {
         $window: $WindowProvider,
         $$rAF: $$RAFProvider,
         $$asyncCallback: $$AsyncCallbackProvider,
-        $$jqLite: $$jqLiteProvider
+        $$jqLite: $$jqLiteProvider,
+        $$HashMap: $$HashMapProvider
       });
     }
   ]);

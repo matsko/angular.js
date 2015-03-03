@@ -1,6 +1,6 @@
 'use strict';
 
-describe("ngAnimate $animateJs", function() {
+ddescribe("ngAnimate $animateJs", function() {
 
   beforeEach(module('ngAnimate'));
 
@@ -17,8 +17,8 @@ describe("ngAnimate $animateJs", function() {
   }));
 
   it('should return nothing if no matching animations classes are found', function() {
-    module(function($animationProvider) {
-      $animationProvider.register('.foo', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.foo', function() {
         return { enter: noop };
       });
     });
@@ -29,8 +29,8 @@ describe("ngAnimate $animateJs", function() {
   });
 
   it('should return nothing if a matching animation class is found, but not a matching event', function() {
-    module(function($animationProvider) {
-      $animationProvider.register('.foo', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.foo', function() {
         return { enter: noop };
       });
     });
@@ -41,8 +41,8 @@ describe("ngAnimate $animateJs", function() {
   });
 
   it('should return a truthy value if a matching animation class and event are found', function() {
-    module(function($animationProvider) {
-      $animationProvider.register('.foo', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.foo', function() {
         return { enter: noop };
       });
     });
@@ -53,11 +53,11 @@ describe("ngAnimate $animateJs", function() {
   });
 
   it('should strictly query for the animation based on the classes value if passed in', function() {
-    module(function($animationProvider) {
-      $animationProvider.register('.superman', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.superman', function() {
         return { enter: noop };
       });
-      $animationProvider.register('.batman', function() {
+      $$animationProvider.register('.batman', function() {
         return { leave: noop };
       });
     });
@@ -73,8 +73,8 @@ describe("ngAnimate $animateJs", function() {
   they('should $prop the animation when runner.$prop() is called', ['end', 'cancel'], function(method) {
     var ended = false;
     var status;
-    module(function($animationProvider) {
-      $animationProvider.register('.the-end', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.the-end', function() {
         return {
           enter: function() {
             return function(cancelled) {
@@ -103,9 +103,9 @@ describe("ngAnimate $animateJs", function() {
     ['end', 'cancel'], function(method) {
 
     var lookup = {};
-    module(function($animationProvider) {
+    module(function($$animationProvider) {
       forEach(['one','two','three'], function(klass) {
-        $animationProvider.register('.' + klass, function() {
+        $$animationProvider.register('.' + klass, function() {
           return {
             enter: function() {
               return function(cancelled) {
@@ -131,8 +131,8 @@ describe("ngAnimate $animateJs", function() {
   they('should only run the $prop operation once', ['end', 'cancel'], function(method) {
     var ended = false;
     var count = 0;
-    module(function($animationProvider) {
-      $animationProvider.register('.the-end', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.the-end', function() {
         return {
           enter: function() {
             return function(cancelled) {
@@ -162,8 +162,8 @@ describe("ngAnimate $animateJs", function() {
 
   they('should still run the associated dom event when the $prop function is run but no more animations', ['cancel', 'end'], function(method) {
     var log = [];
-    module(function($animationProvider) {
-      $animationProvider.register('.the-end', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.the-end', function() {
         return {
           beforeAddClass: function() {
             return function(cancelled) {
@@ -202,8 +202,8 @@ describe("ngAnimate $animateJs", function() {
   });
 
   it('should resolve the promise when end() is called', function() {
-    module(function($animationProvider) {
-      $animationProvider.register('.the-end', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.the-end', function() {
         return { beforeAddClass: noop };
       });
     });
@@ -227,8 +227,8 @@ describe("ngAnimate $animateJs", function() {
   });
 
   it('should reject the promise when cancel() is called', function() {
-    module(function($animationProvider) {
-      $animationProvider.register('.the-end', function() {
+    module(function($$animationProvider) {
+      $$animationProvider.register('.the-end', function() {
         return { beforeAddClass: noop };
       });
     });
@@ -253,12 +253,12 @@ describe("ngAnimate $animateJs", function() {
 
   describe("events", function() {
     var animations, runAnimation, element, log;
-    beforeEach(module(function($animationProvider) {
+    beforeEach(module(function($$animationProvider) {
       element = jqLite('<div class="test-animation"></div>');
       animations = {};
       log = [];
 
-      $animationProvider.register('.test-animation', function() {
+      $$animationProvider.register('.test-animation', function() {
         return animations;
       });
 
@@ -281,6 +281,7 @@ describe("ngAnimate $animateJs", function() {
       inject(function() {
         var args;
         var animationOptions = {};
+        animationOptions.foo = 'bar';
         animations[event] = function() {
           args = arguments;
         };
@@ -289,7 +290,7 @@ describe("ngAnimate $animateJs", function() {
         expect(args.length).toBe(3);
         expect(args[0]).toBe(element);
         expect(isFunction(args[1])).toBe(true);
-        expect(args[2]).toBe(animationOptions);
+        expect(args[2].foo).toBe(animationOptions.foo);
       });
     });
 
@@ -318,6 +319,7 @@ describe("ngAnimate $animateJs", function() {
         };
 
         var animationOptions = {};
+        animationOptions.foo = 'bar';
         animationOptions[event] = className;
         runAnimation(event, noop, noop, animationOptions);
 
@@ -325,7 +327,7 @@ describe("ngAnimate $animateJs", function() {
         expect(args[0]).toBe(element);
         expect(args[1]).toBe(className);
         expect(isFunction(args[2])).toBe(true);
-        expect(args[3]).toBe(animationOptions);
+        expect(args[3].foo).toBe(animationOptions.foo);
       });
     });
 
@@ -339,6 +341,7 @@ describe("ngAnimate $animateJs", function() {
         };
 
         var animationOptions = {};
+        animationOptions.foo = 'bar';
         animationOptions[event] = className;
         runAnimation(event, noop, noop, animationOptions);
 
@@ -346,7 +349,7 @@ describe("ngAnimate $animateJs", function() {
         expect(args[0]).toBe(element);
         expect(args[1]).toBe(className);
         expect(isFunction(args[2])).toBe(true);
-        expect(args[3]).toBe(animationOptions);
+        expect(args[3].foo).toBe(animationOptions.foo);
       });
     });
 
@@ -361,6 +364,7 @@ describe("ngAnimate $animateJs", function() {
         var addClass = 'on';
         var removeClass = 'on';
         var animationOptions = {
+          foo: 'bar',
           addClass: addClass,
           removeClass: removeClass
         };
@@ -371,7 +375,7 @@ describe("ngAnimate $animateJs", function() {
         expect(args[1]).toBe(addClass);
         expect(args[2]).toBe(removeClass);
         expect(isFunction(args[3])).toBe(true);
-        expect(args[4]).toBe(animationOptions);
+        expect(args[4].foo).toBe(animationOptions.foo);
       });
     });
 
@@ -386,6 +390,7 @@ describe("ngAnimate $animateJs", function() {
         var to = { color: 'red' }
         var from = { color: 'blue' }
         var animationOptions = {
+          foo: 'bar',
           to: to,
           from: from
         };
@@ -396,7 +401,7 @@ describe("ngAnimate $animateJs", function() {
         expect(args[1]).toBe(from);
         expect(args[2]).toBe(to);
         expect(isFunction(args[3])).toBe(true);
-        expect(args[4]).toBe(animationOptions);
+        expect(args[4].foo).toBe(animationOptions.foo);
       });
     });
 
@@ -409,12 +414,13 @@ describe("ngAnimate $animateJs", function() {
         };
 
         var animationOptions = {};
+        animationOptions.foo = 'bar';
         runAnimation('custom', noop, noop, animationOptions);
 
         expect(args.length).toBe(3);
         expect(args[0]).toBe(element);
         expect(isFunction(args[1])).toBe(true);
-        expect(args[2]).toBe(animationOptions);
+        expect(args[2].foo).toBe(animationOptions.foo);
       });
     });
 
@@ -667,35 +673,5 @@ describe("ngAnimate $animateJs", function() {
 
       expect(log).toEqual(['beforeFlex', 'dom flex', 'flex']);
     }));
-  });
-
-  describe("grouped animations", function() {
-
-    var animations;
-    var fromElement;
-    var toElement;
-    var outAnchor;
-    var inAnchor;
-    beforeEach(module(function($animationProvider) {
-      fromElement = jqLite('<div></div>');
-      toElement = jqLite('<div></div>');
-      outAnchor = jqLite('<div></div>');
-      inAnchor = jqLite('<div></div>');
-      $animationProvider.register('.grouped-animation', function() {
-        return animations;
-      });
-
-      return function($rootElement) {
-        $rootElement.append(fromElement);
-        $rootElement.append(toElement);
-        fromElement.append(outAnchor);
-        toElement.append(inAnchor);
-      };
-    }));
-
-    it('should perform a fromTo animation if the correct options are provided',
-      inject(function($animateJs) {
-    }));
-
   });
 });

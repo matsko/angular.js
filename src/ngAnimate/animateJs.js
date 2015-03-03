@@ -1,7 +1,9 @@
 'use strict';
 
-var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
-  this.$get = ['$injector', '$qRaf', '$animateRunner', function($injector, $qRaf, $animateRunner) {
+var $AnimateJsProvider = ['$$animationProvider', function($$animationProvider) {
+  this.$get = ['$injector', '$qRaf', '$$animateRunner', '$$animateOptions',
+       function($injector,   $qRaf,   $$animateRunner,   $$animateOptions) {
+
     return function(element, event, classes, options) {
       // the `classes` argument is optional and if it is not used
       // then the classes will be resolved from the element's className
@@ -11,7 +13,7 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
         classes = null;
       }
 
-      options = options || {};
+      options = $$animateOptions(element, options);
       if (!classes) {
         classes = element.attr('class') || '';
         if (options.addClass) {
@@ -47,12 +49,10 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
       // no matching animations
       if (!before && !after) return;
 
-      var _domOperation = options.domOperation;
-      var domOperationCalled = !_domOperation;
-      var domOperation = _domOperation && function() {
-        domOperationCalled = true;
-        _domOperation();
-      };
+      function applyOptions() {
+        options.$domOperation();
+        options.$applyClasses();
+      }
 
       return {
         start: function() {
@@ -64,12 +64,10 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
             chain = before(activeAnimations);
           }
 
-          if (domOperation) {
-            if (isPromiseLike(chain)) {
-              chain = chain.then(domOperation);
-            } else {
-              domOperation();
-            }
+          if (isPromiseLike(chain)) {
+            chain = chain.then(applyOptions);
+          } else {
+            applyOptions();
           }
 
           if (after) {
@@ -91,11 +89,12 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
 
           function onComplete(cancelled) {
             animationClosed = true;
-            !domOperationCalled && domOperation();
+            applyOptions();
+            options.$applyStyles();
             cancelled ? deferred.reject() : deferred.resolve();
           }
 
-          return $animateRunner(deferred.promise, {
+          return $$animateRunner(deferred.promise, {
             end : function() {
               endAnimations();
             },
@@ -228,7 +227,7 @@ var $AnimateJsProvider = ['$animationProvider', function($animationProvider) {
       var matches = [], flagMap = {};
       for (var i=0; i < classes.length; i++) {
         var klass = classes[i],
-            animationFactory = $animationProvider.$$registeredAnimations[klass];
+            animationFactory = $$animationProvider.$$registeredAnimations[klass];
         if (animationFactory && !flagMap[klass]) {
           matches.push($injector.get(animationFactory));
           flagMap[klass] = true;

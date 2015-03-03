@@ -142,8 +142,8 @@ function LocalCacheLookup() {
 var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
   var gcsLookup = new LocalCacheLookup();
   var gcsStaggerLookup = new LocalCacheLookup();
-  this.$get = ['$window', '$$jqLite', '$qRaf', '$timeout', '$$rAF', '$animateRunner', '$document',
-       function($window,   $$jqLite,   $qRaf,   $timeout,   $$rAF,   $animateRunner,   $document) {
+  this.$get = ['$window', '$$jqLite', '$qRaf', '$timeout', '$$rAF', '$$animateRunner', '$document', '$$animateOptions',
+       function($window,   $$jqLite,   $qRaf,   $timeout,   $$rAF,   $$animateRunner,   $document, $$animateOptions) {
 
     var parentCounter = 0;
     function gcsHashFn(node, extraClasses) {
@@ -193,13 +193,13 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       return stagger;
     }
 
-    var cancelLastRafRequest, rafDefered, bod = $document[0].body;
+    var cancelLastRafRequest, rafDeferred, bod = $document[0].body;
     function waitUntilQuiet() {
       if (cancelLastRafRequest) {
         cancelLastRafRequest(); //cancels the request
       }
-      if (!rafDefered) {
-        rafDefered = $qRaf.defer();
+      if (!rafDeferred) {
+        rafDeferred = $qRaf.defer();
       }
       cancelLastRafRequest = $$rAF(function() {
         gcsLookup.flush();
@@ -212,11 +212,11 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         //the active state picks up from there. DO NOT REMOVE THIS LINE.
         var a = bod.offsetWidth + 1;
 
-        var defered = rafDefered;
-        rafDefered = null;
-        defered.resolve();
+        var deferred = rafDeferred;
+        rafDeferred = null;
+        deferred.resolve();
       });
-      return rafDefered.promise;
+      return rafDeferred.promise;
     };
 
     return init;
@@ -241,20 +241,21 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
 
     function init(element, options) {
       var node = element[0];
+      options = $$animateOptions(element, options);
+
       var temporaryStyles = [];
       var classes = element.attr('class');
       var styles = packageStyles(options);
       var animationClosed;
       var animationPaused;
       var animationCompleted;
-      var defered;
+      var deferred;
 
       if (options.duration === 0) {
         close();
         return;
       }
 
-      options = options || {};
       var method = options.event && isArray(options.event)
             ? options.event.join(' ')
             : options.event;
@@ -395,13 +396,13 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       // from happening (by setting 0s none in the class name). If this is the case
       // we need to apply the classes before the first rAF so we know to continue if
       // there actually is a detected transition or keyframe animation
-      var applyClassesEarly = maxDuration === 0
+      var $applyClassesEarly = maxDuration === 0
                                && structural
                                && addRemoveClassName.length > 0
                                && !flags.transitionClassBlock;
 
-      if (applyClassesEarly) {
-        applyClasses();
+      if ($applyClassesEarly) {
+        options.$applyClasses();
 
         // no need to calculate this anymore
         flags.recalculateTimingStyles = false;
@@ -435,7 +436,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       }
 
       if (flags.blockTransition) {
-        applyStyles(true, false);
+        options.$applyStyles(true, false);
       }
       applyBlocking(true);
 
@@ -443,16 +444,16 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         start: function() {
           if (animationClosed) return;
 
-          defered = $qRaf.defer();
+          deferred = $qRaf.defer();
           waitUntilQuiet().then(function() {
-            start(defered);
+            start(deferred);
           });
 
           // we don't have access to pause/resume the animation
           // since it hasn't run yet. AnimateRunner will therefore
           // set noop functions for resume and pause and they will
           // later be overridden once the animation is triggered
-          return $animateRunner(defered.promise, {
+          return $$animateRunner(deferred.promise, {
             end: endFn,
             cancel: cancelFn
           });
@@ -490,8 +491,8 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           node.style.removeProperty(normalizeCssProp(entry[0]));
         });
 
-        applyClasses();
-        applyStyles(true, true);
+        options.$applyClasses();
+        options.$applyStyles(true, true);
 
         // the reason why we have this option is to allow a synchronous closing callback
         // that is fired as SOON as the animation ends (when the CSS is removed) or if
@@ -503,32 +504,8 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         }
 
         // if the preparation function fails then the promise is not setup
-        if (defered) {
-          rejected ? defered.reject() : defered.resolve();
-        }
-      }
-
-      function applyClasses() {
-        if (options.addClass) {
-          element.addClass(options.addClass);
-          delete options.addClass;
-        }
-
-        if (options.removeClass) {
-          element.removeClass(options.removeClass);
-          delete options.removeClass;
-        }
-      }
-
-      function applyStyles(from, to) {
-        if (from && styles.from) {
-          element.css(styles.from);
-          delete styles.from;
-        }
-
-        if (to && styles.to) {
-          element.css(styles.to);
-          delete styles.to;
+        if (deferred) {
+          rejected ? deferred.reject() : deferred.resolve();
         }
       }
 
@@ -577,7 +554,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
         }
 
         // this will decorate the existing promise runner with pause/resume methods
-        $animateRunner(defered.promise, {
+        $$animateRunner(deferred.promise, {
           resume: function() {
             playPause(true);
           },
@@ -586,7 +563,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           }
         });
 
-        return defered.promise;
+        return deferred.promise;
 
         function triggerAnimationStart() {
           // just incase a stagger animation kicks in when the animation
@@ -601,7 +578,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
             node.style[key] = value;
           });
 
-          applyClasses();
+          options.$applyClasses();
           $$jqLite.addClass(element, activeClasses);
 
           if (flags.recalculateTimingStyles) {
@@ -649,7 +626,7 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
           element.on(events.join(' '), onAnimationProgress);
           $timeout(onAnimationExpired, maxDelayTime + CLOSING_TIME_BUFFER * maxDurationTime);
 
-          applyStyles(false, true);
+          options.$applyStyles(false, true);
         }
 
         function onAnimationExpired() {

@@ -1,7 +1,7 @@
 'use strict';
 
-var $AnimateJsDriverProvider = ['$animationProvider', function($animationProvider) {
-  $animationProvider.drivers.push('$$animateJsDriver');
+var $$AnimateJsDriverProvider = ['$$animationProvider', function($$animationProvider) {
+  $$animationProvider.drivers.push('$$animateJsDriver');
   this.$get = ['$animateJs', function($animateJs) {
     return function(details) {
       var element = details.element;
