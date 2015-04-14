@@ -392,6 +392,93 @@
  *
  * To learn more about what's possible be sure to visit the {@link ngAnimate.$animateCss $animateCss service}.
  *
+ * ## Animation Anchoring (via `ng-animate-ref`)
+ *
+ * ngAnimate in AngularJS 1.4 comes packed with the ability to cross-animate elements between
+ * structural areas of an application (like views) by pairing up elements using an attribute
+ * called `ng-animate-ref`.
+ *
+ * Let's say for example we have two views that are managed by `ng-view` and we want to identify
+ * that there is a relationship between two components situated in different views. By using the
+ * `ng-animate-ref` attribute we can identify that the two components are paired together and we
+ * can then attach an animation between then which is triggered when the view changes.
+ *
+ * ```html
+ * <!-- home.html -->
+ * <a href="#/banner-page">
+ *   <img src="./banner.jpg" ng-animate-ref="banner" class="banner-animation">
+ * </a>
+ *
+ * <!-- banner-page.html -->
+ * <img src="./banner.jpg" ng-animate-ref="banner" class="banner-animation">
+ * ```
+ *
+ * Now, when the view changes (once the link is clicked), ngAnimate will examine the
+ * HTML contents to see if there is a match reference between any components in the view
+ * that is leaving and the view that is entering. It will then attempt to trigger a CSS
+ * animation on the `.banner-animation-anchor` CSS class (notice how `.banner-animation` is
+ * a shared CSS class on both elements containing the `ng-animate-ref` pairing).
+ *
+ * So the two images match since they share the same ref value. They also share a similar CSS
+ * class called `banner-animation`. ngAnimate will now apply a suffixed version of each of the
+ * shared CSS classes with `-anchor`. Therefore we will have a shared class of
+ * `banner-animation-anchor` which we can use to setup our transition animation.
+ *
+ * We can now attach a transition onto the `.banner-animation-anchor` CSS class and then
+ * ngAnimate will handle the entire transition for us as well as the addition and removal of
+ * any changes of CSS classes between the elements:
+ *
+ * ```css
+ * .banner-animation-anchor {
+ *   /&#42; this animation will last for 1 second since there are
+ *          two phases to the animation (an `in` and an `out` phase) &#42;/
+ *   transition:0.5s linear all;
+ * }
+ * ```
+ *
+ * There are two stages for an anchor animation: `out` and `in`. The `out` stage happens first and that
+ * is when the element is animated away from its origin. Once that animation is over then the `in` stage
+ * occurs which animates the element to its destination. The reason why there are two animations is to
+ * give enough time for the enter animation on the new element to be ready.
+ *
+ * The example above sets up a transition for both the in and out phases, but we can also target the out or
+ * in phases directly via `ng-anchor-out` and `ng-anchor-in`.
+ *
+ * ```css
+ * .banner-animation-anchor.ng-anchor-out {
+ *   transition: 0.5s linear all;
+ *
+ *   /&#42; the scale will be applied during the out animation,
+ *          but will be animated away when the in animation runs &#42;/
+ *   transform: scale(1.2);
+ * }
+ *
+ * .banner-animation-anchor.ng-anchor-in {
+ *   transition: 1s linear all;
+ * }
+ * ```
+ *
+ * ### How is the element transported?
+ *
+ * When an anchor animation occurs, ngAnimate will clone the starting element and position it exactly where the starting
+ * element is located on screen via absolute positioning. The cloned element will be placed inside of the root element
+ * of the application (where ng-app was defined) and all of the CSS classes of the starting element will be applied. The
+ * element will then animate into the `out` and `in` animations and will eventually reach the coordinates and match
+ * the dimensions of the destination element. During the entire animation a CSS class of `.ng-animate-shim` will be applied
+ * to both the starting and destination elements in order to hide them from being visible (the CSS styling for the class
+ * is: `visibility:none`). Once the anchor reaches its destination then it will be removed and the destination element
+ * will become visible since the shim class will be removed.
+ *
+ * ### How is the morphing handled?
+ *
+ * CSS Anchoring relies on transitions and keyframes and the internal code is intelligent enough to figure out
+ * what CSS classes differ between the starting element and the destination element. These different CSS classes
+ * will be added/removed on the anchor element and a transition will be applied (the transition that is provided
+ * in the anchor class). Long story short, ngAnimate will figure out what classes to add and remove which will
+ * make the transition of the element as smooth and automatic as possible. Be sure to use simple CSS classes that
+ * do not rely on DOM nesting structure so that the anchor element appears the same as the starting element (since
+ * the cloned element is placed inside of body element).
+ *
  *
  * ## Using $animate in your directive code
  *
