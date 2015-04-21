@@ -458,6 +458,135 @@
  * }
  * ```
  *
+ * @example
+  <example module="anchoringExample" deps="angular-animate.js" animations="true">
+    <file name="index.html">
+     <div ng-controller="IndexController">
+       <div ng-include="page"></div>
+     </div>
+    </file>
+    <file name="script.js">
+      angular.module('anchoringExample', ['ngAnimate']);
+        .controller('IndexController', ['$rootScope', function($rootScope) {
+          $rootScope.page = 'home.html';
+          $rootScope.selectRecord = function(record) {
+            $rootScope.record = record;
+            $rootScope.page = 'profile.html';
+          };
+
+          $rootScope.clearRecord = function() {
+            $rootScope.record = null;
+            $rootScope.page = 'home.html';
+          };
+
+          $rootScope.records = [
+            { id:1, "Miss Beulah Roob" },
+            { id:2, "Trent Morissette" },
+            { id:3, "Miss Ava Pouros" },
+            { id:4, "Rod Pouros" },
+            { id:5, "Abdul Rice" },
+            { id:6, "Laurie Rutherford Sr." },
+            { id:7, "Nakia McLaughlin" },
+            { id:8, "Jordon Blanda DVM" },
+            { id:9, "Rhoda Hand" },
+            { id:10, "Alexandrea Sauer" }
+          ];
+        }])
+        .controller('HomePageController', ['$scope', function($scope) {
+          // empty
+        }])
+        .controller('ProfilePageController', ['$scope', function($scope) {
+          $scope.profile = $rootScope.record;
+        }])
+     </file>
+    <file name="home.html">
+      <div ng-controller="HomePageController">
+        <h2>Welcome to the home page</h1>
+        <p>Please click on an element</p>
+        <a href=""
+           ng-click="selectRecord(record)"
+           ng-animate-ref="{{ record.id }}"
+           ng-repeat="record in records">
+          {{ record.title }}
+        </a>
+      </div>
+    </file>
+    <file name="profile.html">
+      <div ng-controller="ProfilePageController">
+      </div>
+    </file>
+    <file name="animations.css">
+      .slide-animate-container {
+        position:relative;
+        background:white;
+        border:1px solid black;
+        height:40px;
+        overflow:hidden;
+      }
+
+      .slide-animate {
+        padding:10px;
+      }
+
+      .slide-animate.ng-enter, .slide-animate.ng-leave {
+        -webkit-transition:all cubic-bezier(0.250, 0.460, 0.450, 0.940) 0.5s;
+        transition:all cubic-bezier(0.250, 0.460, 0.450, 0.940) 0.5s;
+
+        position:absolute;
+        top:0;
+        left:0;
+        right:0;
+        bottom:0;
+        display:block;
+        padding:10px;
+      }
+
+      .slide-animate.ng-enter {
+        top:-50px;
+      }
+      .slide-animate.ng-enter.ng-enter-active {
+        top:0;
+      }
+
+      .slide-animate.ng-leave {
+        top:0;
+      }
+      .slide-animate.ng-leave.ng-leave-active {
+        top:50px;
+      }
+    </file>
+    <file name="protractor.js" type="protractor">
+      var templateSelect = element(by.model('template'));
+      var includeElem = element(by.css('[ng-include]'));
+
+      it('should load template1.html', function() {
+        expect(includeElem.getText()).toMatch(/Content of template1.html/);
+      });
+
+      it('should load template2.html', function() {
+        if (browser.params.browser == 'firefox') {
+          // Firefox can't handle using selects
+          // See https://github.com/angular/protractor/issues/480
+          return;
+        }
+        templateSelect.click();
+        templateSelect.all(by.css('option')).get(2).click();
+        expect(includeElem.getText()).toMatch(/Content of template2.html/);
+      });
+
+      it('should change to blank', function() {
+        if (browser.params.browser == 'firefox') {
+          // Firefox can't handle using selects
+          return;
+        }
+        templateSelect.click();
+        templateSelect.all(by.css('option')).get(0).click();
+        expect(includeElem.isPresent()).toBe(false);
+      });
+    </file>
+  </example>
+ */
+ *
  * ### How is the element transported?
  *
  * When an anchor animation occurs, ngAnimate will clone the starting element and position it exactly where the starting
