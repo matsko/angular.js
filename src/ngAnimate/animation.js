@@ -20,11 +20,24 @@ var $$AnimationProvider = ['$animateProvider', function($animateProvider) {
     return element.data(RUNNER_STORAGE_KEY);
   }
 
-  this.$get = ['$$jqLite', '$rootScope', '$injector', '$$AnimateRunner',
-       function($$jqLite,   $rootScope,   $injector,   $$AnimateRunner) {
+  this.$get = ['$$jqLite', '$rootScope', '$injector', '$$AnimateRunner', '$$animateScheduler',
+       function($$jqLite,   $rootScope,   $injector,   $$AnimateRunner,   $$animateScheduler) {
 
     var animationQueue = [];
+    var elementQueueList = [];
     var applyAnimationClasses = applyAnimationClassesFactory($$jqLite);
+
+    function schedule(node, details) {
+      if (details.structural) {
+        animationQueue.push(details);
+      } else {
+        for (var i = 0; i < elementQueueList.length; i++) {
+          var currentNode = elementQueueList[i];
+          if (
+        }
+        elementQueueList.push
+      }
+    }
 
     // TODO(matsko): document the signature in a better way
     return function(element, event, options) {

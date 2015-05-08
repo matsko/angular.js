@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html ng-app="App">
+<head>
+</head>
+<body>
+
+  <h4>ngShow / ngHide</h4>
+
+  <button ng-click="show=!show">
+    Show ({{ show ? 'on' : 'off' }})
+  </button>
+
+  <button ng-click="hide=!hide">
+    Hide ({{ hide ? 'on' : 'off' }})
+  </button>
+
+  <hr />
+
+  <div data-ng-show="show" data-ddm-omnilist-loading-indicator></div>
+
+  <div ng-show="show">
+    Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+    tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
+    vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
+    no sea takimata sanctus est Lorem ipsum dolor sit amet.
+  </div>
+
+  <div ng-hide="hide">
+    Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+    tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
+    vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
+    no sea takimata sanctus est Lorem ipsum dolor sit amet.
+  </div>
+
+<script type="text/javascript" src="./build/angular.js"></script>
+<script type="text/javascript" src="./build/angular-animate.js"></script>
+<script>
+  angular.module('App', []).directive('ddmOmnilistLoadingIndicator', function() {
+  // Include whitespace before 'Loading...' for proper alignment with omnilist
+  // items.
+  var MARKUP =
+      '<div class="loading-indicator">' +
+        '<div class="icon-container">' +
+          '<span class="ddm-icon ddm-icon-status-loading"></span>' +
+        '</div>' +
+        ' LOADING ' +
+      '</div>';
+
+  return {template: MARKUP};
+  });
+</script>
+</body>
+</html>

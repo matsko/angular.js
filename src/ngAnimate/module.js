@@ -699,6 +699,8 @@ angular.module('ngAnimate', [])
 
   .factory('$$AnimateRunner', $$AnimateRunnerFactory)
 
+  .factory('$$animateScheduler', $$animateSchedulerFactory)
+
   .provider('$$animateQueue', $$AnimateQueueProvider)
   .provider('$$animation', $$AnimationProvider)
 

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html ng-app="Animate">
+<head>
+<style>
+.box {
+  width:400px;
+  height:300px;
+  border:2px solid black;
+  transition:2s linear all;
+}
+.box.ng-enter { width:0; }
+.box.ng-enter.ng-enter-active { width:400px; }
+.box.ng-leave.ng-leave-active { width:0; }
+</style>
+</head>
+<body>
+  <button ng-click="on=true">On</button>
+  <button ng-click="on=false">Off</button>
+  <hr />
+  <div class="box" ng-if="on">
+  </div>
+</body>
+
+<script type="text/javascript" src="./build/angular.js"></script>
+<script type="text/javascript" src="./build/angular-animate.js"></script>
+<script>
+angular.module('Animate', ['ngAnimate'])
+  .run(function($rootScope) {
+    var klass;
+    var resize;
+    $rootScope.resize = function() {
+      resize = !resize;
+    }
+    $rootScope.className = function(val) {
+      if (arguments.length) {
+        klass = val;
+      }
+      return [klass, resize ? 'resize' : null].join(' ');
+    }
+  });
+</script>
+</html>

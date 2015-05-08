@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html ng-app="Animate">
+<head>
+<style>
+.record {
+  transition:0.5s linear all;
+}
+.record.ng-enter {
+  opacity:0;
+}
+.record.ng-enter.ng-enter-active {
+  opacity:1;
+}
+.record.ng-leave-active {
+  opacity:0;
+}
+.record.ng-enter-stagger, .record.ng-leave-stagger {
+  transition-delay:0.05s;
+  transition-duration:0;
+}
+</style>
+</head>
+<body>
+  <button ng-click="set()">Set Items</button>
+  <button ng-click="clear()">Clear Items</button>
+  |
+  <button ng-click="add()">Add New Item</button>
+  <button ng-click="remove()">Remove Item</button>
+  <hr />
+  <div ng-repeat="item in items" class="record">
+    {{ item }}
+  </div>
+</body>
+
+<script type="text/javascript" src="./build/angular.js"></script>
+<script type="text/javascript" src="./build/angular-animate.js"></script>
+<script>
+angular.module('Animate', ['ngAnimate'])
+  .run(function($rootScope) {
+    $rootScope.items = [];
+    $rootScope.clear = function() {
+      $rootScope.items.length = 0;
+    };
+    $rootScope.set = function() {
+      $rootScope.items = [0,1,2,3,4,5,6,7,8,9];
+    };
+    $rootScope.remove = function() {
+      $rootScope.items.pop();
+    };
+    $rootScope.add = function() {
+      $rootScope.items.push($rootScope.items.length);
+    };
+  });
+</script>
+</html>

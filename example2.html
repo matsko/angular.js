@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html ng-app="Animate">
+<head>
+<style>
+.box {
+  width:500px;
+  height:300px;
+  border:2px solid black;
+  transition:3s linear all;
+}
+.red { background:red; }
+.blue { background:blue; }
+.green-add { background:orange; }
+.green { background:green; }
+.silver-add { background:silver; }
+.silver-add-active { background:#222; }
+.resize-add { height:100px; }
+.resize { width:800px; height:800px; transition:5s linear all; }
+</style>
+</head>
+<body>
+  <button ng-click="className(klass='red')">Red</button>
+  <button ng-click="className(klass='blue')">Blue</button>
+  <button ng-click="className(klass='green')">Green</button>
+  <button ng-click="className(klass='silver')">Silver</button>
+  <button ng-click="resize()">Resize</button>
+  <hr />
+  {{ className() }}
+  <div class="box" ng-class="className()">
+    lorem
+  </div>
+</body>
+
+<script type="text/javascript" src="./build/angular.js"></script>
+<script type="text/javascript" src="./build/angular-animate.js"></script>
+<script>
+angular.module('Animate', ['ngAnimate'])
+  .run(function($rootScope) {
+    var klass;
+    var resize;
+    $rootScope.resize = function() {
+      resize = !resize;
+    }
+    $rootScope.className = function(val) {
+      if (arguments.length) {
+        klass = val;
+      }
+      return [klass, resize ? 'resize' : null].join(' ');
+    }
+  });
+</script>
+</html>
