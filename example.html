@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html ng-app="AnimationApp">
+<head>
+<title>My Angular App</title>
+<style>
+.matias { background:red; }
+.allow .animate.ng-enter {
+  opacity:0;
+  transition:0.5s linear all;
+}
+.allow .animate.ng-enter.ng-enter-active {
+  opacity:1;
+}
+.allow .animate.ng-leave {
+  opacity:1;
+  transition:0.5s linear all;
+}
+.allow .animate.ng-leave.ng-leave-active {
+  opacity:0;
+}
+</style>
+</head>
+<body ng-init="ngif=true">
+
+<button ng-click="ngif=true; allow=true">Enter</button>
+<button ng-click="ngif=false; allow=true">Leave</button>
+
+<hr />
+
+<div ng-class="{allow:allow}">
+  <div ng-if="ngif" class="animate">
+    Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+    tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
+    vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
+    no sea takimata sanctus est Lorem ipsum dolor sit amet.
+  </div>
+</div>
+
+<div ng-if="ngif" class="animate matias">
+  Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+  tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
+  vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
+  no sea takimata sanctus est Lorem ipsum dolor sit amet.
+</div>
+
+<script src="./build/angular.js"></script>
+<script src="./build/angular-animate.js"></script>
+<script>
+angular.module('AnimationApp', ['ngAnimate']);
+</script>
+</body>
+</html>
