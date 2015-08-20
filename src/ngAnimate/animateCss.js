@@ -577,7 +577,8 @@ var $AnimateCssProvider = ['$animateProvider', function($animateProvider) {
       flags.applyAnimationDuration  = options.duration && flags.hasAnimations;
       flags.applyTransitionDelay    = truthyTimingValue(options.delay) && (flags.applyTransitionDuration || flags.hasTransitions);
       flags.applyAnimationDelay     = truthyTimingValue(options.delay) && flags.hasAnimations;
-      flags.recalculateTimingStyles = addRemoveClassName.length > 0;
+      flags.recalculateTimingStyles = addRemoveClassName.length > 0 ||
+                                      (activeClasses.length > 0 && !isStructural);
 
       if (flags.applyTransitionDuration || flags.applyAnimationDuration) {
         maxDuration = options.duration ? parseFloat(options.duration) : maxDuration;

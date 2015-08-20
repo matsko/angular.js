@@ -338,6 +338,36 @@ describe('ngAnimate integration tests', function() {
         expect($animate.reflows).toBe(10);
       });
     });
+
+    they('should always run an animation if $prop styles are defined amoung the active CSS classes',
+      ['transition', 'keyframe'], function(event) {
+
+      module('ngAnimateMock');
+      inject(function($animate, $compile, $rootScope, $rootElement, $document, $$rAF) {
+        element = jqLite('<div ng-class="klass">animate me</div>');
+        element.addClass('animate-' + event);
+
+        ss.addRule('.animate-transition.red-add-active', 'transition:0.5s linear all; background:red;');
+        ss.addRule('.animate-keyframe.red-add-active', 'animation:0.5s linear animateRed;');
+
+        $rootElement.append(element);
+        jqLite($document[0].body).append($rootElement);
+
+        $compile(element)($rootScope);
+        $rootScope.$digest();
+
+        expect($animate.reflows).toBe(0);
+
+        $rootScope.klass = 'red';
+        $compile(element)($rootScope);
+        $rootScope.$digest();
+        $$rAF.flush();
+
+        expect(element).toHaveClass('red');
+        expect(element).toHaveClass('red-add');
+        expect(element).toHaveClass('red-add-active');
+      });
+    });
   });
 
   describe('JS animations', function() {
