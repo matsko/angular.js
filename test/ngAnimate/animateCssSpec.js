@@ -1234,6 +1234,67 @@ describe("ngAnimate $animateCss", function() {
             $timeout.flush();
           }).not.toThrow();
         }));
+
+        it("should consider a positive options.delay value for the closing timeout",
+          inject(function($animateCss, $rootElement, $timeout, $document) {
+
+          var element = jqLite('<div></div>');
+          $rootElement.append(element);
+          jqLite($document[0].body).append($rootElement);
+
+          var options = {
+            delay: 3,
+            duration: 3,
+            to: {
+              height: '100px'
+            }
+          };
+
+          var animator = $animateCss(element, options);
+
+          animator.start();
+          triggerAnimationStartFrame();
+
+          expect(element.css(prefix + 'transition-delay')).toContain('3s');
+
+          // At this point, the animation should still be running (closing timeout is 9000ms)
+          $timeout.flush(5000);
+
+          expect(element.css(prefix + 'transition-delay')).toContain('3s');
+
+          browserTrigger(element, 'transitionend',
+            { timeStamp: Date.now() + 3000, elapsedTime: 3 });
+
+          expect(element.css(prefix + 'transition-delay')).toBe('');
+        }));
+
+        it("should ignore a boolean options.delay value for the closing timeout",
+          inject(function($animateCss, $rootElement, $timeout, $document) {
+
+          var element = jqLite('<div></div>');
+          $rootElement.append(element);
+          jqLite($document[0].body).append($rootElement);
+
+          var options = {
+            delay: true,
+            duration: 3,
+            to: {
+              height: '100px'
+            }
+          };
+
+          var animator = $animateCss(element, options);
+
+          animator.start();
+          triggerAnimationStartFrame();
+
+          expect(element.css(prefix + 'transition-delay')).toBeOneOf('initial', '0s');
+
+          //150% of duration
+          $timeout.flush(4500);
+          expect(element.css(prefix + 'transition-delay')).toBe('');
+        }));
+
       });
 
       describe("getComputedStyle", function() {
