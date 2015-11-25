@@ -1257,13 +1257,13 @@ describe("ngAnimate $animateCss", function() {
 
           expect(element.css(prefix + 'transition-delay')).toContain('3s');
 
-          // At this point, the animation should still be running (closing timeout is 9000ms)
+          // At this point, the animation should still be running (closing timeout is 7500ms ... duration * 1.5 + delay => 7.5)
           $timeout.flush(5000);
 
           expect(element.css(prefix + 'transition-delay')).toContain('3s');
 
-          browserTrigger(element, 'transitionend',
-            { timeStamp: Date.now() + 3000, elapsedTime: 3 });
+          // Let's flush the remaining amout of time for the timeout timer to kick in
+          $timeout.flush(2500);
 
           expect(element.css(prefix + 'transition-delay')).toBe('');
         }));
