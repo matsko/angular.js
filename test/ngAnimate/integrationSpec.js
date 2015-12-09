@@ -8,8 +8,6 @@ describe('ngAnimate integration tests', function() {
   var element, html, ss;
   beforeEach(module(function() {
     return function($rootElement, $document, $window, $animate) {
-      $animate.enabled(true);
-
       ss = createMockStyleSheet($document, $window);
 
       var body = jqLite($document[0].body);
@@ -25,8 +23,56 @@ describe('ngAnimate integration tests', function() {
     ss.destroy();
   });
 
+  describe('animations during bootstrap', function() {
+    it("should not allow animations for an ngInclude", function() {
+      var capturedAnimation;
+      module(function($animateProvider) {
+        $animateProvider.register('.animate-this', function() {
+          return {
+            enter: capture('enter'),
+            leave: capture('leave')
+          };
+          function capture(event) {
+            return function(element) {
+              capturedAnimation = event;
+            };
+          }
+        });
+      });
+      inject(function($rootScope, $httpBackend, $compile, $templateRequest, $animate) {
+        $httpBackend.whenGET('my_tpl.html').respond('hello');
+        $rootScope.tpl = 'my_tpl.html';
+
+        element = jqLite('<div><div class="animate-this" ng-include="tpl"></div></div>');
+        $compile(element)($rootScope);
+        html(element);
+        $rootScope.$digest();
+
+        expect(capturedAnimation).toBeFalsy();
+
+        expect($templateRequest.totalPendingRequests).toBeGreaterThan(0);
+        $httpBackend.flush();
+        $rootScope.$digest();
+
+        expect($templateRequest.totalPendingRequests).toBe(0);
+        expect(capturedAnimation).toBeFalsy();
+
+        $rootScope.tpl = null;
+        $rootScope.$digest();
+
+        expect(capturedAnimation).toBe('leave');
+      });
+    });
+  });
+
   describe('CSS animations', function() {
     if (!browserSupportsCssAnimations()) return;
+
+    beforeEach(module(function() {
+      return function($rootElement, $document, $window, $animate) {
+        $animate.enabled(true);
+      };
+    }));
 
     they('should render an $prop animation',
       ['enter', 'leave', 'move', 'addClass', 'removeClass', 'setClass'], function(event) {
@@ -390,6 +436,12 @@ describe('ngAnimate integration tests', function() {
   });
 
   describe('JS animations', function() {
+    beforeEach(module(function() {
+      return function($rootElement, $document, $window, $animate) {
+        $animate.enabled(true);
+      };
+    }));
+
     they('should render an $prop animation',
       ['enter', 'leave', 'move', 'addClass', 'removeClass', 'setClass'], function(event) {
 

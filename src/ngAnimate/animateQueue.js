@@ -97,8 +97,18 @@ var $$AnimateQueueProvider = ['$animateProvider', function($animateProvider) {
     // compiled. The $templateRequest.totalPendingRequests variable keeps track of
     // all of the remote templates being currently downloaded. If there are no
     // templates currently downloading then the watcher will still fire anyway.
+    // We also wait here until the watcher has reached its second iteration so
+    // that directives such as ngInclude and ngIf with a templateUrl directive can
+    // be detected in time during bootstrap.
+    var isFirstWatch = true;
     var deregisterWatch = $rootScope.$watch(
-      function() { return $templateRequest.totalPendingRequests === 0; },
+      function() {
+        if (isFirstWatch) {
+          isFirstWatch = false;
+          return false;
+        }
+        return $templateRequest.totalPendingRequests === 0;
+      },
       function(isEmpty) {
         if (!isEmpty) return;
         deregisterWatch();
